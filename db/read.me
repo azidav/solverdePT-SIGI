@@ -1,0 +1,12 @@
+```
+docker compose down -v
+docker compose up -d
+
+
+#update db
+docker exec -i nuxt_postgres psql -U azidav -d solverdept_db_2025 -f /update_clients_table.sql
+
+#add sql
+
+
+```
