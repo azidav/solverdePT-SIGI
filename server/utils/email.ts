@@ -100,22 +100,28 @@ export async function sendEmail(to: string, subject: string, html: string): Prom
   }
 }
 
-export async function sendAccountCreatedEmail(
+export async function sendAccountActivationEmail(
   to: string,
   name: string,
   username: string,
-  password: string
+  activationUrl: string
 ): Promise<boolean> {
-  const subject = 'A sua conta foi criada'
+  const subject = 'Ative a sua conta'
   const html = `
     <div style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;padding:24px;">
       <h2 style="color:#00C16A;">Bem-vindo(a), ${name}!</h2>
-      <p>A sua conta foi criada com sucesso. Utilize as credenciais abaixo para aceder ao sistema.</p>
+      <p>A sua conta foi criada com sucesso. Para aceder ao sistema, precisa de definir a sua password.</p>
       <div style="background:#f5f5f5;border-radius:8px;padding:16px;margin:16px 0;">
         <p style="margin:4px 0;"><strong>Username:</strong> ${username}</p>
-        <p style="margin:4px 0;"><strong>Password:</strong> <code style="background:#e5e5e5;padding:2px 6px;border-radius:4px;">${password}</code></p>
       </div>
-      <p style="color:#dc2626;"><strong>⚠ Importante:</strong> Altere a sua password após o primeiro acesso em <em>Definições → Mudar Password</em>.</p>
+      <p>Clique no botão abaixo para definir a sua password e ativar a conta:</p>
+      <a href="${activationUrl}"
+        style="display:inline-block;background:#00C16A;color:white;padding:12px 28px;border-radius:8px;text-decoration:none;font-weight:bold;margin:16px 0;">
+        Definir Password
+      </a>
+      <p style="color:#666;font-size:14px;">⏱ Este link expira em <strong>7 dias</strong>.</p>
+      <hr style="border:none;border-top:1px solid #eee;margin:24px 0;">
+      <p style="font-size:12px;color:#999;">Link direto: <a href="${activationUrl}">${activationUrl}</a></p>
     </div>
   `
   return sendEmail(to, subject, html)

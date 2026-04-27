@@ -39,21 +39,21 @@ export default defineEventHandler(async (event: H3Event) => {
 
     const user = users[0]
 
+    // Check activation status before touching password (new users have NULL password)
+    if (user.status === 0) {
+      throw createError({
+        statusCode: 401,
+        message: 'Conta não ativada. Verifique o seu email para definir a sua password.'
+      })
+    }
+
     // Verify password
-    const isValidPassword = await bcrypt.compare(password, user.password)
+    const isValidPassword = user.password && await bcrypt.compare(password, user.password)
 
     if (!isValidPassword) {
       throw createError({
         statusCode: 401,
         message: 'Credenciais inválidas'
-      })
-    }
-
-    // Check if account is active
-    if (user.status === 0) {
-      throw createError({
-        statusCode: 401,
-        message: 'Conta por validar'
       })
     }
 

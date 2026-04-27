@@ -47,7 +47,7 @@ CREATE TABLE IF NOT EXISTS role_permissions (
 CREATE TABLE IF NOT EXISTS users (
   id SERIAL PRIMARY KEY,
   username VARCHAR(100) UNIQUE NOT NULL,
-  password VARCHAR(255) NOT NULL,
+  password VARCHAR(255),
   name VARCHAR(150) NOT NULL,
   email VARCHAR(150) NOT NULL,
   department VARCHAR(100),

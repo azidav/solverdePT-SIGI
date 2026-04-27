@@ -41,11 +41,16 @@ export default defineEventHandler(async (event) => {
 
   const hashedPassword = await bcrypt.hash(password, 10)
 
-  await sql`UPDATE users SET password = ${hashedPassword}, updated_at = NOW() WHERE id = ${row.user_id}`
+  // Set password, activate account (status 0 → 1), clear must_change_password
+  await sql`
+    UPDATE users
+    SET password = ${hashedPassword}, status = GREATEST(status, 1), must_change_password = false, updated_at = NOW()
+    WHERE id = ${row.user_id}
+  `
   await sql`UPDATE password_reset_tokens SET used_at = NOW() WHERE id = ${row.id}`
 
   // Create session exactly like login does
-  const payload = { id: row.uid, username: row.username, permission: row.permission, role_id: row.role_id }
+  const payload = { id: row.uid, username: row.username, permission: row.permission, role_id: row.role_id, must_change_password: false }
   const jwtToken = (jwt as any).sign(payload, JWT_SECRET, { expiresIn: Number(JWT_EXPIRES_IN) })
 
   const maxAge = Number(JWT_EXPIRES_IN)
@@ -61,7 +66,8 @@ export default defineEventHandler(async (event) => {
       name: row.name,
       email: row.email,
       permission: row.permission,
-      status: row.status,
+      status: Math.max(row.status, 1),
+      must_change_password: false,
       role_id: row.role_id
     }
   }

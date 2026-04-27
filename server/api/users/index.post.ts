@@ -2,14 +2,7 @@ import { randomBytes } from 'crypto'
 import sql from '~~/server/utils/db'
 import { getUserFromEvent } from '~~/server/utils/auth'
 import { logUserAction } from '~~/server/utils/audit'
-import { sendAccountCreatedEmail } from '~~/server/utils/email'
-import bcrypt from 'bcrypt'
-
-function generatePassword(length = 12): string {
-  const chars = 'ABCDEFGHJKMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789@#$%!'
-  const bytes = randomBytes(length)
-  return Array.from(bytes).map(b => chars[b % chars.length]).join('')
-}
+import { sendAccountActivationEmail } from '~~/server/utils/email'
 
 export default defineEventHandler(async (event) => {
   const currentUser = await getUserFromEvent(event)
@@ -20,26 +13,38 @@ export default defineEventHandler(async (event) => {
   }
 
   const body = await readBody(event)
-  const { username, name, email, department, permission, status } = body
+  const { username, name, email, department, permission } = body
 
   if (!username || !name || !email) {
     throw createError({ statusCode: 400, message: 'Missing required fields' })
   }
 
-  const plainPassword = generatePassword()
-  const hashedPassword = await bcrypt.hash(plainPassword, 10)
-
+  // Create user with no password — status 0 (pending activation)
   const result = await sql`
     INSERT INTO users (username, password, name, email, department, permission, status, must_change_password)
-    VALUES (${username}, ${hashedPassword}, ${name}, ${email}, ${department || null}, ${permission || 2}, ${status || 1}, true)
+    VALUES (${username}, NULL, ${name}, ${email}, ${department || null}, ${permission || 2}, 0, false)
     RETURNING id, username, name, email, department, permission, status
   `
 
-  await logUserAction(event, currentUser, 'CREATE', 'USER', result[0].id, name)
+  const userId = result[0].id
+  await logUserAction(event, currentUser, 'CREATE', 'USER', userId, name)
 
-  // Send welcome email (non-blocking — don't fail creation if email fails)
-  sendAccountCreatedEmail(email, name, username, plainPassword).catch(err =>
-    console.error('[Email] Falha ao enviar email de boas-vindas:', err)
+  // Generate activation token (7-day expiry)
+  const token = randomBytes(32).toString('hex')
+  const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000)
+
+  await sql`
+    INSERT INTO password_reset_tokens (user_id, token, expires_at)
+    VALUES (${userId}, ${token}, ${expiresAt})
+  `
+
+  const host = event.node.req.headers['host'] || 'localhost:3000'
+  const protocol = process.env.NODE_ENV === 'production' ? 'https' : 'http'
+  const activationUrl = `${protocol}://${host}/reset-password?token=${token}`
+
+  // Send activation email (non-blocking)
+  sendAccountActivationEmail(email, name, username, activationUrl).catch(err =>
+    console.error('[Email] Falha ao enviar email de ativação:', err)
   )
 
   return result[0]
