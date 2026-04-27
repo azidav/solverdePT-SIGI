@@ -4,7 +4,7 @@ import bcrypt from 'bcrypt'
 import jwt from 'jsonwebtoken'
 import { getUserFromEvent } from '~~/server/utils/auth'
 
-const JWT_SECRET = process.env.JWT_SECRET || 'changeme'
+const JWT_SECRET = process.env.JWT_SECRET || 'sv-secret-AJDOS165fs'
 const JWT_EXPIRES_IN = process.env.JWT_EXPIRES_IN || 60 * 60 // seconds
 
 export default defineEventHandler(async (event: H3Event) => {
@@ -61,19 +61,24 @@ export default defineEventHandler(async (event: H3Event) => {
 
     await sql`
       UPDATE users
-      SET password = ${hashed}, updated_at = ${new Date()}
+      SET password = ${hashed}, must_change_password = false, updated_at = ${new Date()}
       WHERE id = ${user.id}
     `
 
-    // Issue fresh token with new data
-    const payload = { id: dbUser.id, username: dbUser.username, permission: dbUser.permission }
+    // Issue fresh token — must_change_password cleared
+    const payload = {
+      id: dbUser.id,
+      username: dbUser.username,
+      permission: dbUser.permission,
+      must_change_password: false
+    }
     const token = (jwt as any).sign(payload, JWT_SECRET, { expiresIn: JWT_EXPIRES_IN })
     const maxAge = Number(JWT_EXPIRES_IN)
     const secureFlag = process.env.NODE_ENV === 'production' ? '; Secure' : ''
     const cookieStr = `auth.token=${encodeURIComponent(token)}; Path=/; HttpOnly; SameSite=Lax; Max-Age=${maxAge}${secureFlag}`
     event.node.res.setHeader('Set-Cookie', cookieStr)
 
-    return { success: true }
+    return { success: true, must_change_password: false }
   } catch (error: unknown) {
     if (error instanceof Error && 'statusCode' in error) throw error
     const customError = error as any

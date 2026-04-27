@@ -156,15 +156,16 @@ const state = reactive<Partial<Schema>>({
 // Utilizadores associados a este grupo
 const assignedUsers = ref<{ id: number; name: string; email: string }[]>([])
 const availableUsers = ref<{ id: number; name: string; email: string }[]>([])
-const showUserSelect = ref(false)
-const selectedUserId = ref<number | undefined>(undefined)
+
+// Modal de seleção de utilizadores
+const showUserModal = ref(false)
+const userModalSearch = ref('')
+const selectedInModal = ref<number[]>([])
 
 // Carregar utilizadores associados ao grupo
 function loadAssignedUsers() {
   if (props.group?.id && props.group?.users) {
-    // Carregar utilizadores do grupo (vem da API)
     assignedUsers.value = [...props.group.users]
-    // Utilizadores disponíveis = todos menos os já associados
     const assignedIds = new Set(assignedUsers.value.map(u => u.id))
     availableUsers.value = props.users
       .filter(u => !assignedIds.has(u.id))
@@ -175,20 +176,33 @@ function loadAssignedUsers() {
   }
 }
 
-// Adicionar utilizador ao grupo
-function addUser(user: { id: number; name: string; email: string }) {
-  assignedUsers.value.push(user)
-  availableUsers.value = availableUsers.value.filter(u => u.id !== user.id)
-  showUserSelect.value = false
-  selectedUserId.value = undefined
+const filteredAvailableUsers = computed(() => {
+  const q = userModalSearch.value.toLowerCase()
+  if (!q) return availableUsers.value
+  return availableUsers.value.filter(u =>
+    u.name.toLowerCase().includes(q) || u.email.toLowerCase().includes(q)
+  )
+})
+
+function openUserModal() {
+  selectedInModal.value = []
+  userModalSearch.value = ''
+  showUserModal.value = true
 }
 
-// Handler para quando o utilizador seleciona do dropdown
-function handleUserSelect(userId: number) {
-  const user = availableUsers.value.find(u => u.id === userId)
-  if (user) {
-    addUser(user)
+function toggleUserInModal(userId: number) {
+  if (selectedInModal.value.includes(userId)) {
+    selectedInModal.value = selectedInModal.value.filter(id => id !== userId)
+  } else {
+    selectedInModal.value.push(userId)
   }
+}
+
+function confirmUserModal() {
+  const toAdd = availableUsers.value.filter(u => selectedInModal.value.includes(u.id))
+  toAdd.forEach(u => assignedUsers.value.push(u))
+  availableUsers.value = availableUsers.value.filter(u => !selectedInModal.value.includes(u.id))
+  showUserModal.value = false
 }
 
 // Remover utilizador do grupo
@@ -199,14 +213,6 @@ function removeUser(userId: number) {
     availableUsers.value.push(user)
   }
 }
-
-// Opções para o select de utilizadores
-const userSelectItems = computed(() =>
-  availableUsers.value.map(u => ({
-    label: `${u.name} (${u.email})`,
-    value: u.id
-  }))
-)
 
 // Submeter formulário
 async function onSubmit(event: FormSubmitEvent<Schema>) {
@@ -301,6 +307,7 @@ onMounted(() => {
     <UFormField label="Nome" name="name" required>
       <UInput
         v-model="state.name"
+        class="w-1/2"
         placeholder="Ex: Administradores, Editores..."
         :disabled="group?.is_system"
       />
@@ -310,6 +317,7 @@ onMounted(() => {
     <UFormField label="Descrição" name="description">
       <UTextarea
         v-model="state.description"
+        class="w-1/2"
         placeholder="Descrição do grupo e suas permissões..."
         :rows="3"
       />
@@ -324,73 +332,68 @@ onMounted(() => {
     </div>
 
     <!-- Secção: Associar Utilizadores -->
-    <div class="space-y-3 pt-4 border-t border-default">
-      <div class="flex items-center justify-between">
-        <div class="flex items-center gap-2">
-          <UIcon name="i-lucide-users" class="size-4 text-primary" />
-          <span class="font-medium">Utilizadores Associados</span>
-        </div>
-        <UButton
-          size="xs"
-          variant="soft"
-          icon="i-lucide-plus"
-          label="Adicionar"
-          :disabled="availableUsers.length === 0"
-          @click="showUserSelect = !showUserSelect"
-        />
-      </div>
-
-      <!-- Select para adicionar utilizadores -->
-      <div v-if="showUserSelect && availableUsers.length > 0" class="space-y-2">
-        <USelect
-          v-model="selectedUserId"
-          :items="userSelectItems"
-          placeholder="Selecionar utilizador..."
-          @update:model-value="handleUserSelect"
-        />
-      </div>
-
-      <!-- Lista de utilizadores associados com badges -->
-      <div v-if="assignedUsers.length > 0" class="flex flex-wrap gap-2">
-        <UBadge
-          v-for="user in assignedUsers"
-          :key="user.id"
-          color="primary"
-          variant="subtle"
-          size="lg"
-          class="pr-1"
-        >
-          <span class="mr-1">{{ user.name }}</span>
+    <UCard>
+      <template #header>
+        <div class="flex items-center justify-between">
+          <div class="flex items-center gap-2">
+            <UIcon name="i-lucide-users" class="size-4 text-primary" />
+            <h3 class="font-semibold text-sm">Utilizadores Associados</h3>
+          </div>
           <UButton
-            icon="i-lucide-x"
-            color="primary"
-            variant="link"
             size="xs"
-            :padded="false"
-            @click="removeUser(user.id)"
+            variant="soft"
+            icon="i-lucide-plus"
+            label="Adicionar"
+            :disabled="availableUsers.length === 0"
+            @click="openUserModal"
           />
-        </UBadge>
-      </div>
+        </div>
+      </template>
 
-      <p v-else class="text-sm text-muted">
-        Nenhum utilizador associado a este grupo.
-      </p>
+      <div class="space-y-3">
+        <!-- Utilizadores associados como badges -->
+        <div v-if="assignedUsers.length > 0" class="flex flex-wrap gap-2">
+          <UBadge
+            v-for="user in assignedUsers"
+            :key="user.id"
+            color="primary"
+            variant="subtle"
+            size="lg"
+            class="pr-1"
+          >
+            <span class="mr-1">{{ user.name }}</span>
+            <UButton
+              icon="i-lucide-x"
+              color="primary"
+              variant="link"
+              size="xs"
+              :padded="false"
+              @click="removeUser(user.id)"
+            />
+          </UBadge>
+        </div>
 
-      <!-- Aviso ao criar novo grupo -->
-      <div v-if="!isEditMode && assignedUsers.length > 0" class="p-3 bg-warning-50 dark:bg-warning-900/20 rounded-lg border border-warning-200 dark:border-warning-800">
-        <p class="text-sm text-warning-700 dark:text-warning-300 flex items-center gap-2">
-          <UIcon name="i-lucide-info" class="size-4" />
-          Os utilizadores serão associados após criar o grupo.
+        <p v-else class="text-sm text-muted">
+          Nenhum utilizador associado a este grupo.
         </p>
+
+        <div v-if="!isEditMode && assignedUsers.length > 0" class="p-3 bg-warning-50 dark:bg-warning-900/20 rounded-lg border border-warning-200 dark:border-warning-800">
+          <p class="text-sm text-warning-700 dark:text-warning-300 flex items-center gap-2">
+            <UIcon name="i-lucide-info" class="size-4" />
+            Os utilizadores serão associados após criar o grupo.
+          </p>
+        </div>
       </div>
-    </div>
+    </UCard>
 
     <!-- Secção: Matriz de Permissões -->
-    <div class="space-y-3 pt-4 border-t border-default">
-      <div class="flex items-center gap-2 mb-4">
-        <UIcon name="i-lucide-shield-check" class="size-4 text-primary" />
-        <span class="font-medium">Permissões do Grupo</span>
-      </div>
+    <UCard>
+      <template #header>
+        <div class="flex items-center gap-2">
+          <UIcon name="i-lucide-shield-check" class="size-4 text-primary" />
+          <h3 class="font-semibold text-sm">Permissões do Grupo</h3>
+        </div>
+      </template>
 
       <!-- Loading state -->
       <div v-if="loadingPermissions" class="flex items-center justify-center py-8">
@@ -405,7 +408,6 @@ onMounted(() => {
           :key="module"
           class="border border-default rounded-lg overflow-hidden"
         >
-          <!-- Header do Módulo -->
           <div class="flex items-center gap-3 px-4 py-3 bg-elevated">
             <UCheckbox
               :model-value="isModuleFullySelected(module as string)"
@@ -419,7 +421,6 @@ onMounted(() => {
             </UBadge>
           </div>
 
-          <!-- Tabela de Permissões -->
           <div class="divide-y divide-default">
             <div
               v-for="permission in perms"
@@ -444,10 +445,10 @@ onMounted(() => {
       <p v-else class="text-sm text-muted text-center py-4">
         Nenhuma permissão disponível.
       </p>
-    </div>
+    </UCard>
 
     <!-- Botões -->
-    <div class="flex justify-end gap-2 pt-4">
+    <div class="flex justify-end gap-2 pt-2">
       <UButton
         label="Cancelar"
         color="neutral"
@@ -462,4 +463,56 @@ onMounted(() => {
       />
     </div>
   </UForm>
+
+  <!-- Modal: Selecionar Utilizadores -->
+  <UModal v-model:open="showUserModal" title="Selecionar Utilizadores" :ui="{ content: 'max-w-lg' }">
+    <template #body>
+      <div class="space-y-3">
+        <UInput
+          v-model="userModalSearch"
+          icon="i-lucide-search"
+          placeholder="Pesquisar por nome ou email..."
+          autofocus
+        />
+
+        <div class="max-h-72 overflow-y-auto divide-y divide-default rounded-lg border border-default">
+          <div
+            v-for="user in filteredAvailableUsers"
+            :key="user.id"
+            class="flex items-center gap-3 px-3 py-2.5 hover:bg-elevated/50 cursor-pointer transition-colors"
+            @click="toggleUserInModal(user.id)"
+          >
+            <UCheckbox
+              :model-value="selectedInModal.includes(user.id)"
+              @click.stop
+              @update:model-value="toggleUserInModal(user.id)"
+            />
+            <UAvatar size="sm" :alt="user.name" />
+            <div class="flex-1 min-w-0">
+              <p class="text-sm font-medium truncate">{{ user.name }}</p>
+              <p class="text-xs text-muted truncate">{{ user.email }}</p>
+            </div>
+          </div>
+
+          <div v-if="filteredAvailableUsers.length === 0" class="px-3 py-6 text-center text-sm text-muted">
+            Nenhum utilizador disponível.
+          </div>
+        </div>
+
+        <div class="flex items-center justify-between pt-1">
+          <span class="text-sm text-muted">{{ selectedInModal.length }} selecionado(s)</span>
+          <div class="flex gap-2">
+            <UButton label="Cancelar" color="neutral" variant="subtle" @click="showUserModal = false" />
+            <UButton
+              label="Adicionar"
+              color="primary"
+              icon="i-lucide-plus"
+              :disabled="selectedInModal.length === 0"
+              @click="confirmUserModal"
+            />
+          </div>
+        </div>
+      </div>
+    </template>
+  </UModal>
 </template>

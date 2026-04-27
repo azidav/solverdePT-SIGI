@@ -1,130 +1,80 @@
 <script setup lang="ts">
 import * as z from 'zod'
-import type { FormError } from '@nuxt/ui'
-import { ref } from 'vue'
+import type { FormSubmitEvent } from '@nuxt/ui'
 
-const showPass = ref(false)
-const showPassDuplo = ref(false)
+definePageMeta({ title: 'Mudar Password' })
 
-const passwordSchema = z.object({
-  current: z.string().min(4, 'Must be at least 4 characters'),
-  new: z.string().min(4, 'Must be at least 4 characters')
+const toast = useAppToast()
+const loading = ref(false)
+
+const schema = z.object({
+  currentPassword: z.string().min(4, 'Password atual obrigatória'),
+  newPassword: z.string().min(6, 'Nova password deve ter pelo menos 6 caracteres'),
+  confirmPassword: z.string()
+}).refine(d => d.newPassword === d.confirmPassword, {
+  message: 'As passwords não coincidem',
+  path: ['confirmPassword']
+}).refine(d => d.currentPassword !== d.newPassword, {
+  message: 'A nova password deve ser diferente da atual',
+  path: ['newPassword']
 })
 
-type PasswordSchema = z.output<typeof passwordSchema>
+type Schema = z.output<typeof schema>
 
-const password = reactive<Partial<PasswordSchema>>({
-  current: undefined,
-  new: undefined
-})
+const state = reactive({ currentPassword: '', newPassword: '', confirmPassword: '' })
 
-const validate = (state: Partial<PasswordSchema>): FormError[] => {
-  const errors: FormError[] = []
-  if (state.current && state.new && state.current === state.new) {
-    errors.push({ name: 'new', message: 'Passwords must be different' })
-  }
-  return errors
-}
-
-const toast = useToast()
-const isSubmitting = ref(false)
-
-async function onSubmit() {
-  // basic guard
-  if (!password.current || !password.new) return
-
-  isSubmitting.value = true
+async function onSubmit(event: FormSubmitEvent<Schema>) {
+  loading.value = true
   try {
     await useApiFetch('/api/auth/change-password', {
       method: 'POST',
       body: {
-        currentPassword: password.current,
-        newPassword: password.new,
-      },
+        currentPassword: event.data.currentPassword,
+        newPassword: event.data.newPassword
+      }
     })
 
-    toast.add({
-      title: 'Password updated',
-      description: 'Your password was changed successfully.',
-      color: 'success',
-      icon: 'i-lucide-check',
-    })
+    state.currentPassword = ''
+    state.newPassword = ''
+    state.confirmPassword = ''
 
-    // reset form
-    password.current = undefined
-    password.new = undefined
-  } catch (e: any) {
-    toast.add({
-      title: 'Error',
-      description: e?.data?.message || e?.message || 'Failed to update password',
-      color: 'error',
-      icon: 'i-lucide-alert-triangle',
-    })
+    toast.success('Password alterada com sucesso', 'Sucesso')
+  } catch (err: unknown) {
+    const msg = ((err as any)?.data?.message) || 'Erro ao alterar password'
+    toast.error(msg, 'Erro')
   } finally {
-    isSubmitting.value = false
+    loading.value = false
   }
 }
 </script>
 
 <template>
-  <UPageCard
-    title="Password"
-    description="Confirm your current password before setting a new one."
-    variant="subtle"
-  >
-    <UForm
-      :schema="passwordSchema"
-      :state="password"
-      :validate="validate"
-      class="flex flex-col gap-4 max-w-xs"
-      @submit.prevent="onSubmit"
-    >
-      <UFormField name="current">
-          <UInput
-            v-model="password.current"
-            :type="showPass ? 'text' : 'password'"
-            placeholder="Current password"
-            class="w-full"
-          >
-          <template #trailing>
-            <UButton
-              color="neutral"
-              variant="link"
-              size="sm"
-              :icon="showPass ? 'i-lucide-eye-off' : 'i-lucide-eye'"
-              :aria-label="showPass ? 'Esconder password' : 'Mostrar password'"
-              :aria-pressed="showPass"
-              aria-controls="password"
-              @click="showPass = !showPass"
-            />
-          </template>
-        </UInput>
-      </UFormField>
+  <div class="space-y-4">
+    <div>
+      <h2 class="text-base font-semibold">Mudar Password</h2>
+      <p class="text-sm text-muted mt-1">Atualiza a tua password de acesso.</p>
+    </div>
 
-      <UFormField name="new">
-        <UInput
-          v-model="password.new"
-          :type="showPassDuplo ? 'text' : 'password'"
-          placeholder="New password"
-          class="w-full"
-          >
-          <template #trailing>
-            <UButton
-              color="neutral"
-              variant="link"
-              size="sm"
-              :icon="showPassDuplo ? 'i-lucide-eye-off' : 'i-lucide-eye'"
-              :aria-label="showPassDuplo ? 'Esconder password' : 'Mostrar password'"
-              :aria-pressed="showPassDuplo"
-              aria-controls="password"
-              @click="showPassDuplo = !showPassDuplo"
-            />
-          </template>
-        </UInput>
-      </UFormField>
+    <UCard>
+      <UForm :schema="schema" :state="state" class="space-y-4" @submit="onSubmit">
+        <UFormField label="Password atual" name="currentPassword" required>
+          <UInput v-model="state.currentPassword" type="password" placeholder="••••••••" class="w-1/2" />
+        </UFormField>
 
-      <UButton :label="isSubmitting ? 'Updating...' : 'Update'" class="w-fit" type="submit" :disabled="isSubmitting" />
-    </UForm>
-  </UPageCard>
+        <UDivider />
 
+        <UFormField label="Nova password" name="newPassword" required>
+          <UInput v-model="state.newPassword" type="password" placeholder="••••••••" class="w-1/2" />
+        </UFormField>
+
+        <UFormField label="Confirmar nova password" name="confirmPassword" required>
+          <UInput v-model="state.confirmPassword" type="password" placeholder="••••••••" class="w-1/2" />
+        </UFormField>
+
+        <div class="flex justify-end pt-2">
+          <UButton type="submit" label="Guardar" color="primary" icon="i-lucide-save" :loading="loading" />
+        </div>
+      </UForm>
+    </UCard>
+  </div>
 </template>

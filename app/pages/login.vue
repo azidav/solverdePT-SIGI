@@ -79,7 +79,7 @@ async function onSubmit(payload: FormSubmitEvent<Schema>) {
         @submit="onSubmit"
       >
         <template #description>
-          Não tens conta? <ULink to="/register" class="text-primary font-medium">Regista-te</ULink>.
+          <ULink to="/forgot-password" class="text-primary font-medium">Esqueceste-te da password?</ULink>
         </template>
       </UAuthForm>
     </UPageCard>

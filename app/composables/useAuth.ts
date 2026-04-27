@@ -9,6 +9,7 @@ interface User {
   department: string
   permission: number
   status: number
+  must_change_password?: boolean
 }
 
 export const useAuth = () => {
@@ -51,6 +52,12 @@ export const useAuth = () => {
     }
   }
 
+  const loginWithUser = (u: User) => {
+    user.value = u
+    userCookie.value = u
+    useCookie('auth.loggedIn').value = '1'
+  }
+
   const logout = () => {
     user.value = null
     error.value = null
@@ -61,15 +68,12 @@ export const useAuth = () => {
     navigateTo('/login')
   }
 
-  const register = async () => {
-    throw new Error('Registration not available - single-tenant platform')
-  }
-
   return {
     user,
     isAuthenticated,
     error,
     login,
+    loginWithUser,
     logout,
   }
 }

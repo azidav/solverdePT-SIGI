@@ -1,7 +1,7 @@
 import jwt from 'jsonwebtoken'
 import sql from '~~/server/utils/db'
 
-const JWT_SECRET = process.env.JWT_SECRET || 'changeme'
+const JWT_SECRET = process.env.JWT_SECRET || 'sv-secret-AJDOS165fs'
 
 export const verifyToken = (token?: string | null) => {
   if (!token) return null
@@ -11,6 +11,7 @@ export const verifyToken = (token?: string | null) => {
       username?: string
       permission?: number
       role_id?: number
+      must_change_password?: boolean
     }
   } catch (e) {
     return null
@@ -34,7 +35,7 @@ export const getUserFromEvent = async (event: any) => {
   const users = await sql`
     SELECT
       u.id, u.username, u.name, u.email, u.department,
-      u.permission, u.status, u.role_id,
+      u.permission, u.status, u.role_id, u.must_change_password,
       u.created_at, u.updated_at,
       r.id as role_id, r.name as role_name, r.description as role_description
     FROM users u

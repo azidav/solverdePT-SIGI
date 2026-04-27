@@ -2,8 +2,9 @@ import sql from '~~/server/utils/db'
 import { H3Event } from 'h3'
 import bcrypt from 'bcrypt'
 import jwt from 'jsonwebtoken'
+import { createAuditLog } from '~~/server/utils/audit'
 
-const JWT_SECRET = process.env.JWT_SECRET || 'changeme'
+const JWT_SECRET = process.env.JWT_SECRET || 'sv-secret-AJDOS165fs'
 const JWT_EXPIRES_IN = process.env.JWT_EXPIRES_IN || 60 * 60 // seconds
 
 export default defineEventHandler(async (event: H3Event) => {
@@ -20,7 +21,7 @@ export default defineEventHandler(async (event: H3Event) => {
     const users = await sql`
       SELECT
         u.id, u.username, u.password, u.name, u.email, u.department,
-        u.permission, u.status, u.role_id,
+        u.permission, u.status, u.role_id, u.must_change_password,
         r.id as role_id, r.name as role_name, r.description as role_description
       FROM users u
       LEFT JOIN roles r ON u.role_id = r.id
@@ -61,9 +62,19 @@ export default defineEventHandler(async (event: H3Event) => {
       id: user.id,
       username: user.username,
       permission: user.permission,
-      role_id: user.role_id
+      role_id: user.role_id,
+      must_change_password: user.must_change_password ?? false
     }
     const token = (jwt as any).sign(payload, JWT_SECRET, { expiresIn: JWT_EXPIRES_IN })
+
+    // Audit log
+    await createAuditLog(event, {
+      userId: user.id,
+      userName: user.name,
+      action: 'LOGIN',
+      entityType: 'SESSION',
+      entityName: user.username
+    })
 
     // Set httpOnly cookie
     const maxAge = Number(JWT_EXPIRES_IN)
@@ -80,6 +91,7 @@ export default defineEventHandler(async (event: H3Event) => {
         department: user.department,
         permission: user.permission,
         status: user.status,
+        must_change_password: user.must_change_password ?? false,
         role: {
           id: user.role_id,
           name: user.role_name,

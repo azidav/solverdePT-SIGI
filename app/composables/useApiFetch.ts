@@ -10,7 +10,7 @@ export async function useApiFetch(url: string, options?: any) {
       e?.status === 401 &&
       route.path !== "/login" &&
       route.path !== "/register" &&
-      route.path !== "/settings/change-password"
+      route.path !== "/forgot-password"
     ) {
       // Show toast for session expired
       const toast = useToast();

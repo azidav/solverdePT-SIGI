@@ -30,17 +30,6 @@ const links = computed(() => {
       }
     }]
 
-    // Members - requer SETTINGS:MANAGE_USERS
-    if (canManageUsers.value) {
-      settingsChildren.push({
-        label: 'Utilizadores',
-        to: '/settings/members',
-        onSelect: () => {
-          open.value = false
-        }
-      })
-    }
-
     // Roles & Permissões - requer SETTINGS:MANAGE_ROLES
     if (canManageRoles.value) {
       settingsChildren.push({
@@ -51,29 +40,13 @@ const links = computed(() => {
         }
       })
 
-      // Audit Logs - apenas para quem pode gerir roles (admin)
       settingsChildren.push({
         label: 'Audit Logs',
         to: '/audit-logs',
-        onSelect: () => {
-          open.value = false
-        }
+        onSelect: () => { open.value = false }
       })
-    }
 
-    settingsChildren.push({
-      label: 'Notificações',
-      to: '/settings/notifications',
-      onSelect: () => {
-        open.value = false
-      }
-    }, {
-      label: 'Mudar Password',
-      to: '/settings/change-password',
-      onSelect: () => {
-        open.value = false
-      }
-    })
+    }
 
     mainLinks.push({
       label: 'Settings',

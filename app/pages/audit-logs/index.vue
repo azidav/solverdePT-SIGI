@@ -1,12 +1,9 @@
 <script setup lang="ts">
 import type { TableColumn } from '@nuxt/ui'
-import { h } from 'vue'
+
+definePageMeta({ title: 'Audit Logs' })
 
 const UBadge = resolveComponent('UBadge')
-
-definePageMeta({
-  layout: 'default'
-})
 
 interface IAuditLog {
   id: number
@@ -28,22 +25,18 @@ interface IPagination {
   totalPages: number
 }
 
+const toast = useToast()
 const loading = ref(false)
 const logs = ref<IAuditLog[]>([])
-const pagination = ref<IPagination>({
-  page: 1,
-  limit: 50,
-  total: 0,
-  totalPages: 0
-})
+const pagination = ref<IPagination>({ page: 1, limit: 50, total: 0, totalPages: 0 })
 
-// Filtros
-const startDate = ref<string>('')
-const endDate = ref<string>('')
-const selectedAction = ref<string>('')
+const today = new Date().toISOString().split('T')[0]
+const startDate = ref(today)
+const endDate = ref(today)
+const selectedAction = ref<string | null>(null)
 
-// Opções para filtros
 const actionOptions = [
+  { label: 'Todas as ações', value: null },
   { label: 'Criar', value: 'CREATE' },
   { label: 'Atualizar', value: 'UPDATE' },
   { label: 'Eliminar', value: 'DELETE' },
@@ -53,53 +46,44 @@ const actionOptions = [
   { label: 'Remover', value: 'UNASSIGN' }
 ]
 
-// Formatar data/hora
-function formatDateTime(dateStr: string) {
-  if (!dateStr) return '-'
+const ACTION_COLORS: Record<string, string> = {
+  CREATE: 'success',
+  UPDATE: 'info',
+  DELETE: 'error',
+  LOGIN: 'primary',
+  LOGOUT: 'neutral',
+  ASSIGN: 'success',
+  UNASSIGN: 'warning'
+}
+
+const ACTION_LABELS: Record<string, string> = {
+  CREATE: 'Criar',
+  UPDATE: 'Atualizar',
+  DELETE: 'Eliminar',
+  LOGIN: 'Login',
+  LOGOUT: 'Logout',
+  ASSIGN: 'Atribuir',
+  UNASSIGN: 'Remover'
+}
+
+const ENTITY_LABELS: Record<string, string> = {
+  USER: 'Utilizador',
+  ROLE: 'Grupo',
+  PERMISSION: 'Permissão',
+  USER_ROLE: 'Atribuição',
+  SESSION: 'Sessão'
+}
+
+function formatDateTime(d: string) {
+  if (!d) return '-'
   try {
-    const date = new Date(dateStr)
-    if (isNaN(date.getTime())) return dateStr
-    return date.toLocaleString('pt-PT', {
-      day: '2-digit',
-      month: '2-digit',
-      year: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit'
+    return new Date(d).toLocaleString('pt-PT', {
+      day: '2-digit', month: '2-digit', year: 'numeric',
+      hour: '2-digit', minute: '2-digit'
     })
-  } catch {
-    return dateStr
-  }
+  } catch { return d }
 }
 
-// Traduzir ação
-function translateAction(action: string) {
-  const translations: Record<string, string> = {
-    CREATE: 'Criar',
-    UPDATE: 'Atualizar',
-    DELETE: 'Eliminar',
-    LOGIN: 'Login',
-    LOGOUT: 'Logout',
-    ASSIGN: 'Atribuir',
-    UNASSIGN: 'Remover'
-  }
-  return translations[action] || action
-}
-
-// Cor do badge de ação
-function getActionColor(action: string) {
-  const colors: Record<string, string> = {
-    CREATE: 'success',
-    UPDATE: 'info',
-    DELETE: 'error',
-    LOGIN: 'primary',
-    LOGOUT: 'neutral',
-    ASSIGN: 'success',
-    UNASSIGN: 'warning'
-  }
-  return colors[action] || 'neutral'
-}
-
-// Colunas da tabela
 const columns: TableColumn<IAuditLog>[] = [
   {
     accessorKey: 'created_at',
@@ -114,11 +98,19 @@ const columns: TableColumn<IAuditLog>[] = [
   {
     accessorKey: 'action',
     header: 'Ação',
-    cell: ({ row }) => h(UBadge, {
-      color: getActionColor(row.original.action),
-      variant: 'subtle',
-      size: 'sm'
-    }, () => translateAction(row.original.action))
+    cell: ({ row }) =>
+      h(UBadge, {
+        color: ACTION_COLORS[row.original.action] || 'neutral',
+        variant: 'subtle',
+        size: 'sm'
+      }, () => ACTION_LABELS[row.original.action] || row.original.action)
+  },
+  {
+    accessorKey: 'entity_type',
+    header: 'Tipo',
+    cell: ({ row }) =>
+      h(UBadge, { color: 'neutral', variant: 'outline', size: 'sm' },
+        () => ENTITY_LABELS[row.original.entity_type] || row.original.entity_type)
   },
   {
     accessorKey: 'entity_name',
@@ -128,198 +120,130 @@ const columns: TableColumn<IAuditLog>[] = [
   {
     accessorKey: 'ip_address',
     header: 'IP',
-    cell: ({ row }) => h('code', { class: 'text-xs bg-muted/20 px-1 py-0.5 rounded' }, row.original.ip_address)
+    cell: ({ row }) =>
+      h('code', { class: 'text-xs bg-muted/30 px-1.5 py-0.5 rounded font-mono' },
+        row.original.ip_address || '-')
   }
 ]
 
-// Fetch logs
 async function fetchLogs(page = 1) {
   loading.value = true
   try {
-    const params = new URLSearchParams()
-    params.append('page', page.toString())
-    params.append('limit', '50')
-
+    const params = new URLSearchParams({ page: String(page), limit: '50' })
     if (startDate.value) params.append('start_date', startDate.value)
     if (endDate.value) params.append('end_date', endDate.value)
-    if (selectedAction.value) params.append('action', selectedAction.value)
+    if (selectedAction.value != null) params.append('action', selectedAction.value)
 
-    const result = await useApiFetch(`/api/audit-logs?${params.toString()}`)
-
-    logs.value = result?.data || result || []
-    pagination.value = result?.pagination || pagination.value
-  } catch (error) {
-    console.error('Error fetching audit logs:', error)
+    const result = await useApiFetch(`/api/audit-logs?${params}`) as any
+    logs.value = result?.data || []
+    if (result?.pagination) pagination.value = result.pagination
+  } catch {
+    toast.add({ title: 'Erro', description: 'Erro ao carregar audit logs', color: 'error' })
   } finally {
     loading.value = false
   }
 }
 
-// Aplicar filtros
-function applyFilters() {
-  fetchLogs(1)
-}
-
-// Limpar filtros
 function clearFilters() {
   startDate.value = ''
   endDate.value = ''
-  selectedAction.value = ''
+  selectedAction.value = null
   fetchLogs(1)
 }
 
-// Paginação
-function goToPage(page: number) {
-  if (page >= 1 && page <= pagination.value.totalPages) {
-    fetchLogs(page)
-  }
-}
-
-// Fetch inicial
-onMounted(() => {
-  fetchLogs()
-})
+onMounted(() => fetchLogs())
 </script>
 
 <template>
-  <div class="p-6 space-y-6">
-    <!-- Header -->
-    <div class="flex items-center justify-between">
-      <div>
-        <h1 class="text-2xl font-bold">Audit Logs</h1>
-        <p class="text-muted text-sm mt-1">
-          Histórico de alterações e ações no sistema
-        </p>
-      </div>
-    </div>
-
-    <!-- Filtros -->
-    <UCard>
-      <template #header>
-        <div class="flex items-center gap-2">
-          <UIcon name="i-lucide-filter" class="size-4" />
-          <span class="font-medium">Filtros</span>
-        </div>
-      </template>
-
-      <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-        <div>
-          <label class="block text-sm font-medium mb-1">Data Início</label>
-          <UInput
-            v-model="startDate"
-            type="date"
-          />
-        </div>
-
-        <div>
-          <label class="block text-sm font-medium mb-1">Data Fim</label>
-          <UInput
-            v-model="endDate"
-            type="date"
-          />
-        </div>
-
-        <div>
-          <label class="block text-sm font-medium mb-1">Ação</label>
-          <USelect
-            v-model="selectedAction"
-            :items="actionOptions"
-            value-key="value"
-            placeholder="Selecione uma ação"
-            clearable
-            searchable
-          />
-        </div>
-      </div>
-
-      <template #footer>
-        <div class="flex justify-end gap-2">
-          <UButton
-            label="Limpar"
-            color="neutral"
-            variant="subtle"
-            @click="clearFilters"
-          />
-          <UButton
-            label="Filtrar"
-            color="primary"
-            icon="i-lucide-search"
-            @click="applyFilters"
-          />
-        </div>
-      </template>
-    </UCard>
-
-    <!-- Tabela de Logs -->
-    <UCard>
-      <template #header>
-        <div class="flex items-center justify-between">
-          <div class="flex items-center gap-2">
-            <UIcon name="i-lucide-history" class="size-4" />
-            <span class="font-medium">Registos de Auditoria</span>
-          </div>
-          <UBadge color="neutral" variant="subtle">
+  <UDashboardPanel id="audit-logs">
+    <template #header>
+      <UDashboardNavbar title="Audit Logs">
+        <template #leading>
+          <UDashboardSidebarCollapse />
+        </template>
+        <template #right>
+          <UBadge color="neutral" variant="subtle" size="lg">
             {{ pagination.total }} registos
           </UBadge>
-        </div>
-      </template>
-
-      <UTable
-        :columns="columns"
-        :data="logs"
-        :loading="loading"
-        class="min-h-[300px]"
-      >
-        <template #empty>
-          <div class="text-center py-8 text-muted">
-            <UIcon name="i-lucide-inbox" class="size-12 mx-auto mb-2 opacity-50" />
-            <p>Nenhum registo encontrado</p>
-          </div>
         </template>
-      </UTable>
+      </UDashboardNavbar>
+    </template>
 
-      <!-- Paginação -->
-      <template v-if="pagination.totalPages > 1" #footer>
-        <div class="flex items-center justify-between">
-          <p class="text-sm text-muted">
-            Página {{ pagination.page }} de {{ pagination.totalPages }}
-          </p>
-          <div class="flex gap-1">
-            <UButton
-              icon="i-lucide-chevrons-left"
-              color="neutral"
-              variant="ghost"
-              size="sm"
-              :disabled="pagination.page === 1"
-              @click="goToPage(1)"
-            />
-            <UButton
-              icon="i-lucide-chevron-left"
-              color="neutral"
-              variant="ghost"
-              size="sm"
-              :disabled="pagination.page === 1"
-              @click="goToPage(pagination.page - 1)"
-            />
-            <UButton
-              icon="i-lucide-chevron-right"
-              color="neutral"
-              variant="ghost"
-              size="sm"
-              :disabled="pagination.page === pagination.totalPages"
-              @click="goToPage(pagination.page + 1)"
-            />
-            <UButton
-              icon="i-lucide-chevrons-right"
-              color="neutral"
-              variant="ghost"
-              size="sm"
-              :disabled="pagination.page === pagination.totalPages"
-              @click="goToPage(pagination.totalPages)"
-            />
+    <template #body>
+      <div class="space-y-4 p-4">
+        <!-- Filtros -->
+        <UCard>
+          <template #header>
+            <div class="flex items-center gap-2">
+              <UIcon name="i-lucide-filter" class="size-4 text-muted" />
+              <span class="font-medium text-sm">Filtros</span>
+            </div>
+          </template>
+
+          <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <UFormField label="Data Início">
+              <UInput v-model="startDate" type="date" class="w-full" />
+            </UFormField>
+
+            <UFormField label="Data Fim">
+              <UInput v-model="endDate" type="date" class="w-full" />
+            </UFormField>
+
+            <UFormField label="Ação">
+              <USelect
+                v-model="selectedAction"
+                :items="actionOptions"
+                class="w-full"
+              />
+            </UFormField>
           </div>
-        </div>
-      </template>
-    </UCard>
-  </div>
+
+          <template #footer>
+            <div class="flex justify-end gap-2">
+              <UButton label="Limpar" color="neutral" variant="subtle" @click="clearFilters" />
+              <UButton label="Filtrar" color="primary" icon="i-lucide-search" @click="fetchLogs(1)" />
+            </div>
+          </template>
+        </UCard>
+
+        <!-- Tabela -->
+        <UCard>
+          <UTable
+            :columns="columns"
+            :data="logs"
+            :loading="loading"
+            :ui="{
+              base: 'table-fixed border-separate border-spacing-0',
+              thead: '[&>tr]:bg-elevated/50 [&>tr]:after:content-none',
+              tbody: '[&>tr]:last:[&>td]:border-b-0',
+              th: 'py-2 first:rounded-l-lg last:rounded-r-lg border-y border-default first:border-l last:border-r',
+              td: 'border-b border-default',
+              separator: 'h-0'
+            }"
+          />
+
+          <template v-if="!loading && logs.length === 0" #footer>
+            <div class="flex flex-col items-center gap-2 py-10 text-muted">
+              <UIcon name="i-lucide-inbox" class="size-10 opacity-40" />
+              <p class="text-sm">Nenhum registo encontrado</p>
+            </div>
+          </template>
+
+          <template v-if="pagination.totalPages > 1" #footer>
+            <div class="flex items-center justify-between">
+              <p class="text-sm text-muted">
+                Página {{ pagination.page }} de {{ pagination.totalPages }}
+              </p>
+              <UPagination
+                :default-page="pagination.page"
+                :total="pagination.total"
+                :items-per-page="pagination.limit"
+                @update:page="fetchLogs"
+              />
+            </div>
+          </template>
+        </UCard>
+      </div>
+    </template>
+  </UDashboardPanel>
 </template>

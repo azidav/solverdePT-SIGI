@@ -41,14 +41,13 @@ const isEditMode = computed(() => !!props.user?.id)
 const baseSchema = {
   first_name: z.string().min(2, 'Primeiro nome deve ter pelo menos 2 caracteres'),
   last_name: z.string().min(2, 'Último nome deve ter pelo menos 2 caracteres'),
-  email: z.string().email('Email inválido'),
+  email: z.email('Email inválido'),
   job_title: z.string().optional()
 }
 
 const createSchema = z.object({
   ...baseSchema,
-  username: z.string().min(3, 'Username deve ter pelo menos 3 caracteres'),
-  password: z.string().min(6, 'Password deve ter pelo menos 6 caracteres')
+  username: z.string().min(3, 'Username deve ter pelo menos 3 caracteres')
 })
 
 const editSchema = z.object({
@@ -67,43 +66,46 @@ const state = reactive<Partial<CreateSchema>>({
   last_name: '',
   username: '',
   email: '',
-  password: '',
   job_title: ''
 })
 
 // Grupos associados ao utilizador
 const assignedGroups = ref<IGroup[]>([])
-const showGroupSelect = ref(false)
-const selectedGroupId = ref<number | undefined>(undefined)
 
 // Grupos disponíveis (não associados)
 const availableGroups = computed(() =>
   props.groups.filter(g => !assignedGroups.value.some(ag => ag.id === g.id))
 )
 
-// Opções para o select de grupos
-const groupSelectItems = computed(() =>
-  availableGroups.value.map(g => ({
-    label: g.name,
-    value: g.id
-  }))
-)
+// Modal de seleção de grupos
+const showGroupModal = ref(false)
+const groupModalSearch = ref('')
+const selectedInModal = ref<number[]>([])
 
-// Adicionar grupo
-function addGroup(groupId: number) {
-  const group = props.groups.find(g => g.id === groupId)
-  if (group && !assignedGroups.value.some(g => g.id === groupId)) {
-    assignedGroups.value.push(group)
-  }
-  showGroupSelect.value = false
-  selectedGroupId.value = undefined
+const filteredAvailableGroups = computed(() => {
+  const q = groupModalSearch.value.toLowerCase()
+  if (!q) return availableGroups.value
+  return availableGroups.value.filter(g => g.name.toLowerCase().includes(q))
+})
+
+function openGroupModal() {
+  selectedInModal.value = []
+  groupModalSearch.value = ''
+  showGroupModal.value = true
 }
 
-// Handler para quando o utilizador seleciona do dropdown
-function handleGroupSelect(groupId: number) {
-  if (groupId) {
-    addGroup(groupId)
+function toggleGroupInModal(groupId: number) {
+  if (selectedInModal.value.includes(groupId)) {
+    selectedInModal.value = selectedInModal.value.filter(id => id !== groupId)
+  } else {
+    selectedInModal.value.push(groupId)
   }
+}
+
+function confirmGroupModal() {
+  const toAdd = availableGroups.value.filter(g => selectedInModal.value.includes(g.id))
+  toAdd.forEach(g => assignedGroups.value.push(g))
+  showGroupModal.value = false
 }
 
 // Remover grupo
@@ -113,10 +115,9 @@ function removeGroup(groupId: number) {
 
 // Inicializar dados do utilizador
 function initUserData() {
-  // Limpar sempre primeiro
   assignedGroups.value = []
-  selectedGroupId.value = undefined
-  showGroupSelect.value = false
+  selectedInModal.value = []
+  showGroupModal.value = false
 
   if (props.user) {
     state.first_name = props.user.first_name || props.user.name?.split(' ')[0] || ''
@@ -143,7 +144,6 @@ function initUserData() {
     state.last_name = ''
     state.username = ''
     state.email = ''
-    state.password = ''
     state.job_title = ''
   }
 }
@@ -151,6 +151,11 @@ function initUserData() {
 // Submeter formulário
 async function onSubmit(event: FormSubmitEvent<CreateSchema | EditSchema>) {
   loading.value = true
+  if (assignedGroups.value.length === 0) {
+    toast.add({ title: 'Grupo obrigatório', description: 'O utilizador deve ter pelo menos um grupo associado.', color: 'error' })
+    return loading.value = false
+  }
+
   try {
     const fullName = `${event.data.first_name} ${event.data.last_name}`.trim()
 
@@ -163,7 +168,6 @@ async function onSubmit(event: FormSubmitEvent<CreateSchema | EditSchema>) {
 
     if (!isEditMode.value) {
       body.username = (event.data as CreateSchema).username
-      body.password = (event.data as CreateSchema).password
       body.status = 1
       body.permission = 3 // Default: Utilizador
 
@@ -218,16 +222,18 @@ onMounted(() => {
   >
     <!-- Linha 1: First name / Last name -->
     <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-      <UFormField label="Primeiro Nome" name="first_name" required>
+      <UFormField class="w-full" label="Primeiro Nome" name="first_name" required>
         <UInput
           v-model="state.first_name"
+          class="w-full"
           placeholder="João"
         />
       </UFormField>
 
-      <UFormField label="Último Nome" name="last_name" required>
+      <UFormField class="w-full" label="Último Nome" name="last_name" required>
         <UInput
           v-model="state.last_name"
+          class="w-full"
           placeholder="Silva"
         />
       </UFormField>
@@ -235,98 +241,87 @@ onMounted(() => {
 
     <!-- Linha 2: Username / Email -->
     <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-      <UFormField label="Username" name="username" :required="!isEditMode">
+      <UFormField class="w-full" label="Username" name="username" :required="!isEditMode">
         <UInput
           v-model="state.username"
+          class="w-full"
           placeholder="joao.silva"
           :disabled="isEditMode"
         />
       </UFormField>
 
-      <UFormField label="Email" name="email" required>
+      <UFormField class="w-full" label="Email" name="email" required>
         <UInput
           v-model="state.email"
+          class="w-full"
           type="email"
           placeholder="joao.silva@solverdept.com"
         />
       </UFormField>
     </div>
 
-    <!-- Password (apenas para novo utilizador) -->
-    <div v-if="!isEditMode" class="grid grid-cols-1 md:grid-cols-2 gap-4">
-      <UFormField label="Password" name="password" required>
+    <!-- Linha 3: Job title -->
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+      <UFormField label="Cargo / Função" name="job_title">
         <UInput
-          v-model="state.password"
-          type="password"
-          placeholder="••••••••"
+          v-model="state.job_title"
+          class="w-full"
+          placeholder="Ex: Desenvolvedor, Gestor de Projeto..."
         />
       </UFormField>
     </div>
 
-    <!-- Linha 3: Job title -->
-    <UFormField label="Cargo / Função" name="job_title">
-      <UInput
-        v-model="state.job_title"
-        placeholder="Ex: Desenvolvedor, Gestor de Projeto..."
-      />
-    </UFormField>
-
     <!-- Secção: Associar Grupos -->
-    <div class="space-y-3 pt-4 border-t border-default">
-      <div class="flex items-center justify-between">
-        <div class="flex items-center gap-2">
-          <UIcon name="i-lucide-shield" class="size-4 text-primary" />
-          <span class="font-medium">Grupos Associados</span>
-        </div>
-        <UButton
-          size="xs"
-          variant="soft"
-          icon="i-lucide-plus"
-          label="Adicionar"
-          :disabled="availableGroups.length === 0"
-          @click="showGroupSelect = !showGroupSelect"
-        />
-      </div>
-
-      <!-- Select para adicionar grupos -->
-      <div v-if="showGroupSelect && availableGroups.length > 0">
-        <USelect
-          v-model="selectedGroupId"
-          :items="groupSelectItems"
-          placeholder="Selecionar grupo..."
-          @update:model-value="handleGroupSelect"
-        />
-      </div>
-
-      <!-- Lista de grupos associados com badges -->
-      <div v-if="assignedGroups.length > 0" class="flex flex-wrap gap-2">
-        <UBadge
-          v-for="group in assignedGroups"
-          :key="group.id"
-          color="primary"
-          variant="subtle"
-          size="lg"
-          class="pr-1"
-        >
-          <span class="mr-1">{{ group.name }}</span>
+    <UCard :ui="{ root: assignedGroups.length === 0 ? 'ring-1 ring-error-500' : '' }">
+      <template #header>
+        <div class="flex items-center justify-between">
+          <div class="flex items-center gap-2">
+            <UIcon name="i-lucide-shield" class="size-4 text-primary" />
+            <h3 class="font-semibold text-sm">Grupos Associados</h3>
+          </div>
           <UButton
-            icon="i-lucide-x"
-            color="primary"
-            variant="link"
             size="xs"
-            :padded="false"
-            @click="removeGroup(group.id)"
+            variant="soft"
+            icon="i-lucide-plus"
+            label="Adicionar"
+            :disabled="availableGroups.length === 0"
+            @click="openGroupModal"
           />
-        </UBadge>
-      </div>
+        </div>
+      </template>
 
-      <p v-else class="text-sm text-muted">
-        Nenhum grupo associado. Adicione grupos para definir as permissões do utilizador.
-      </p>
-    </div>
+      <div class="space-y-3">
+        <!-- Grupos associados como badges -->
+        <div v-if="assignedGroups.length > 0" class="flex flex-wrap gap-2">
+          <UBadge
+            v-for="group in assignedGroups"
+            :key="group.id"
+            color="primary"
+            variant="subtle"
+            size="lg"
+            class="pr-1"
+          >
+            <span class="mr-1">{{ group.name }}</span>
+            <UButton
+              icon="i-lucide-x"
+              color="primary"
+              variant="link"
+              size="xs"
+              :padded="false"
+              @click="removeGroup(group.id)"
+            />
+          </UBadge>
+        </div>
+
+        <p v-else class="text-sm text-error-500 flex items-center gap-1">
+          <UIcon name="i-lucide-alert-circle" class="size-4 shrink-0" />
+          Obrigatório — adicione pelo menos um grupo.
+        </p>
+      </div>
+    </UCard>
 
     <!-- Botões -->
-    <div class="flex justify-end gap-2 pt-4">
+    <div class="flex justify-end gap-2 pt-2">
       <UButton
         label="Cancelar"
         color="neutral"
@@ -341,4 +336,53 @@ onMounted(() => {
       />
     </div>
   </UForm>
+
+  <!-- Modal: Selecionar Grupos -->
+  <UModal v-model:open="showGroupModal" title="Selecionar Grupos" :ui="{ content: 'max-w-md' }">
+    <template #body>
+      <div class="space-y-3">
+        <UInput
+          v-model="groupModalSearch"
+          icon="i-lucide-search"
+          placeholder="Pesquisar por nome..."
+          autofocus
+        />
+
+        <div class="max-h-64 overflow-y-auto divide-y divide-default rounded-lg border border-default">
+          <div
+            v-for="group in filteredAvailableGroups"
+            :key="group.id"
+            class="flex items-center gap-3 px-3 py-2.5 hover:bg-elevated/50 cursor-pointer transition-colors"
+            @click="toggleGroupInModal(group.id)"
+          >
+            <UCheckbox
+              :model-value="selectedInModal.includes(group.id)"
+              @click.stop
+              @update:model-value="toggleGroupInModal(group.id)"
+            />
+            <UIcon name="i-lucide-shield" class="size-4 text-primary shrink-0" />
+            <span class="text-sm font-medium">{{ group.name }}</span>
+          </div>
+
+          <div v-if="filteredAvailableGroups.length === 0" class="px-3 py-6 text-center text-sm text-muted">
+            Nenhum grupo disponível.
+          </div>
+        </div>
+
+        <div class="flex items-center justify-between pt-1">
+          <span class="text-sm text-muted">{{ selectedInModal.length }} selecionado(s)</span>
+          <div class="flex gap-2">
+            <UButton label="Cancelar" color="neutral" variant="subtle" @click="showGroupModal = false" />
+            <UButton
+              label="Adicionar"
+              color="primary"
+              icon="i-lucide-plus"
+              :disabled="selectedInModal.length === 0"
+              @click="confirmGroupModal"
+            />
+          </div>
+        </div>
+      </div>
+    </template>
+  </UModal>
 </template>
