@@ -26,7 +26,7 @@ export default defineEventHandler(async (event: H3Event) => {
       FROM users u
       LEFT JOIN roles r ON u.role_id = r.id
       WHERE u.username = ${username}
-      AND u.status IN (1,0)
+      AND u.status >= 0
       LIMIT 1
     `
 
@@ -39,11 +39,18 @@ export default defineEventHandler(async (event: H3Event) => {
 
     const user = users[0]
 
-    // Check activation status before touching password (new users have NULL password)
-    if (user.status === 0) {
+    // Check activation status before touching password (pending users have NULL password)
+    if (user.status === 2) {
       throw createError({
         statusCode: 401,
         message: 'Conta não ativada. Verifique o seu email para definir a sua password.'
+      })
+    }
+
+    if (user.status === 0) {
+      throw createError({
+        statusCode: 401,
+        message: 'Conta desativada. Contacte o administrador.'
       })
     }
 

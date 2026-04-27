@@ -1,5 +1,8 @@
 -- Pending migrations go here
 
+-- Add job_title column to users
+ALTER TABLE users ADD COLUMN IF NOT EXISTS job_title VARCHAR(150);
+
 -- Config variables table
 CREATE TABLE IF NOT EXISTS config_variables (
   id SERIAL PRIMARY KEY,

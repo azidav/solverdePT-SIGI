@@ -19,7 +19,7 @@ export default defineEventHandler(async (event) => {
   try {
     // Get current values for audit
     const [existingUser] = await sql`
-      SELECT id, name, email, department, permission, status
+      SELECT id, name, email, department, permission, status, password
       FROM users
       WHERE id = ${parseInt(userId)}
     `
@@ -33,15 +33,19 @@ export default defineEventHandler(async (event) => {
     if (body.name !== undefined) updateData.name = body.name
     if (body.email !== undefined) updateData.email = body.email
     if (body.department !== undefined) updateData.department = body.department
+    if (body.job_title !== undefined) updateData.job_title = body.job_title
     if (body.permission !== undefined) updateData.permission = body.permission
-    if (body.status !== undefined) updateData.status = body.status
+    if (body.status !== undefined) {
+      // If activating (status → 1) but user has no password, keep as pending (2)
+      updateData.status = body.status === 1 && !existingUser.password ? 2 : body.status
+    }
     updateData.updated_at = new Date()
 
     const updated = await sql`
       UPDATE users
       SET ${sql(updateData)}
       WHERE id = ${parseInt(userId)}
-      RETURNING id, username, name, email, department, permission, status, created_at, updated_at
+      RETURNING id, username, name, email, department, job_title, permission, status, created_at, updated_at
     `
 
     // Audit log

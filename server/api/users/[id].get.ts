@@ -10,9 +10,20 @@ export default defineEventHandler(async (event) => {
 
   try {
     const users = await sql`
-      SELECT id, username, name, email, department, permission, status, created_at, updated_at
-      FROM users
-      WHERE id = ${parseInt(userId)}
+      SELECT
+        u.id, u.username, u.name, u.email, u.department, u.job_title,
+        u.permission, u.status, u.role_id, u.created_at, u.updated_at,
+        COALESCE(
+          (
+            SELECT json_agg(json_build_object('id', r.id, 'name', r.name))
+            FROM user_roles ur
+            JOIN roles r ON ur.role_id = r.id
+            WHERE ur.user_id = u.id
+          ),
+          '[]'::json
+        ) as roles
+      FROM users u
+      WHERE u.id = ${parseInt(userId)}
     `
 
     if (users.length === 0) {

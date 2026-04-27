@@ -17,6 +17,7 @@ export default defineEventHandler(async (event) => {
       u.name,
       u.email,
       u.department,
+      u.job_title,
       u.permission,
       u.status,
       u.role_id,

@@ -1,7 +1,6 @@
 <script setup lang="ts">
-import type { TableColumn } from '@nuxt/ui'
 import { getPaginationRowModel } from '@tanstack/table-core'
-import type { Row } from '@tanstack/table-core'
+import type { ColumnDef, Row, Table } from '@tanstack/table-core'
 import type { IUser } from '~/types/permissions'
 
 const UButton = resolveComponent('UButton')
@@ -21,7 +20,8 @@ const pagination = ref({ pageIndex: 0, pageSize: 10 })
 const showDeleteModal = ref(false)
 const userToDelete = ref<{ id: number; name: string }>({ id: 0, name: '' })
 
-const inactiveUsers = computed(() => allUsers.value.filter(u => u.status !== 1))
+// Only deactivated accounts (status 0); pending (2) shows in the main Users tab
+const inactiveUsers = computed(() => allUsers.value.filter(u => u.status === 0))
 
 async function loadUsers() {
   loading.value = true
@@ -43,14 +43,9 @@ async function loadUsers() {
 }
 
 async function toggleStatus(user: IUser) {
-  const newStatus = user.status === 1 ? 0 : 1
   try {
-    await useApiFetch(`/api/users/${user.id}`, { method: 'PUT', body: { status: newStatus } })
-    toast.add({
-      title: 'Sucesso',
-      description: `Utilizador ${newStatus === 1 ? 'ativado' : 'desativado'} com sucesso`,
-      color: 'success'
-    })
+    await useApiFetch(`/api/users/${user.id}`, { method: 'PUT', body: { status: 1 } })
+    toast.add({ title: 'Sucesso', description: 'Utilizador ativado com sucesso', color: 'success' })
     await loadUsers()
   } catch {
     toast.add({ title: 'Erro', description: 'Erro ao alterar estado do utilizador', color: 'error' })
@@ -106,16 +101,16 @@ function getRowItems(row: Row<IUser>) {
   ]
 }
 
-const columns: TableColumn<IUser>[] = [
+const columns: ColumnDef<IUser>[] = [
   {
     id: 'select',
-    header: ({ table }) =>
+    header: ({ table }: { table: Table<IUser> }) =>
       h(UCheckbox, {
         'modelValue': table.getIsSomePageRowsSelected() ? 'indeterminate' : table.getIsAllPageRowsSelected(),
         'onUpdate:modelValue': (value: boolean | 'indeterminate') => table.toggleAllPageRowsSelected(!!value),
         'ariaLabel': 'Selecionar tudo'
       }),
-    cell: ({ row }) =>
+    cell: ({ row }: { row: Row<IUser> }) =>
       h(UCheckbox, {
         'modelValue': row.getIsSelected(),
         'onUpdate:modelValue': (value: boolean | 'indeterminate') => row.toggleSelected(!!value),
@@ -127,7 +122,7 @@ const columns: TableColumn<IUser>[] = [
     header: 'Username',
     enableColumnFilter: true,
     filterFn: 'includesString',
-    cell: ({ row }) =>
+    cell: ({ row }: { row: Row<IUser> }) =>
       h('div', { class: 'flex items-center gap-3' }, [
         h(UAvatar, { size: 'sm', alt: row.original.name }),
         h('span', {
@@ -139,17 +134,17 @@ const columns: TableColumn<IUser>[] = [
   {
     accessorKey: 'first_name',
     header: 'Primeiro Nome',
-    cell: ({ row }) => row.original.first_name || '-'
+    cell: ({ row }: { row: Row<IUser> }) => row.original.first_name || '-'
   },
   {
     accessorKey: 'last_name',
     header: 'Último Nome',
-    cell: ({ row }) => row.original.last_name || '-'
+    cell: ({ row }: { row: Row<IUser> }) => row.original.last_name || '-'
   },
   {
     accessorKey: 'roles',
     header: 'Grupos',
-    cell: ({ row }) => {
+    cell: ({ row }: { row: Row<IUser> }) => {
       const roles = row.original.roles || []
       if (roles.length > 0) {
         return h('div', { class: 'flex flex-wrap gap-1' },
@@ -164,20 +159,12 @@ const columns: TableColumn<IUser>[] = [
   {
     accessorKey: 'status',
     header: 'Estado',
-    cell: ({ row }) => {
-      const statusMap: Record<number, { label: string; color: 'success' | 'warning' | 'error' }> = {
-        1: { label: 'Ativo', color: 'success' },
-        0: { label: 'Pendente', color: 'warning' },
-        [-1]: { label: 'Desativado', color: 'error' }
-      }
-      const s = statusMap[row.original.status] || { label: 'Desconhecido', color: 'neutral' as const }
-      return h(UBadge, { variant: 'subtle', color: s.color }, () => s.label)
-    }
+    cell: () => h(UBadge, { variant: 'subtle', color: 'error' }, () => 'Inativo')
   },
   {
     id: 'actions',
     header: '',
-    cell: ({ row }) =>
+    cell: ({ row }: { row: Row<IUser> }) =>
       h('div', { class: 'text-right' },
         h(UDropdownMenu, { content: { align: 'end' }, items: getRowItems(row) },
           () => h(UButton, { icon: 'i-lucide-ellipsis-vertical', color: 'neutral', variant: 'ghost' })

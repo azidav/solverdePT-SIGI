@@ -1,7 +1,6 @@
 <script setup lang="ts">
-import type { TableColumn } from '@nuxt/ui'
 import { getPaginationRowModel } from '@tanstack/table-core'
-import type { Row } from '@tanstack/table-core'
+import type { ColumnDef, Row, Table } from '@tanstack/table-core'
 import type { IUser } from '~/types/permissions'
 
 const UButton = resolveComponent('UButton')
@@ -18,7 +17,8 @@ const usersTable = useTemplateRef('usersTable')
 const rowSelection = ref({})
 const pagination = ref({ pageIndex: 0, pageSize: 10 })
 
-const activeUsers = computed(() => allUsers.value.filter(u => u.status === 1))
+// Active (1) + Pending activation (2)
+const activeUsers = computed(() => allUsers.value.filter(u => u.status >= 1))
 
 async function loadUsers() {
   loading.value = true
@@ -40,7 +40,8 @@ async function loadUsers() {
 }
 
 async function toggleStatus(user: IUser) {
-  const newStatus = user.status === 1 ? 0 : 1
+  // Active (1) or Pending (2) → Deactivate (0); Inactive (0) → Activate (1)
+  const newStatus = user.status >= 1 ? 0 : 1
   try {
     await useApiFetch(`/api/users/${user.id}`, { method: 'PUT', body: { status: newStatus } })
     toast.add({
@@ -55,6 +56,7 @@ async function toggleStatus(user: IUser) {
 }
 
 function getRowItems(row: Row<IUser>) {
+  const canDeactivate = row.original.status >= 1
   return [
     { type: 'label' as const, label: 'Ações' },
     {
@@ -72,24 +74,30 @@ function getRowItems(row: Row<IUser>) {
     },
     { type: 'separator' as const },
     {
-      label: row.original.status === 1 ? 'Desativar' : 'Ativar',
-      icon: row.original.status === 1 ? 'i-lucide-user-x' : 'i-lucide-user-check',
-      color: row.original.status === 1 ? 'warning' as const : 'success' as const,
+      label: canDeactivate ? 'Desativar' : 'Ativar',
+      icon: canDeactivate ? 'i-lucide-user-x' : 'i-lucide-user-check',
+      color: canDeactivate ? 'warning' as const : 'success' as const,
       onSelect: () => toggleStatus(row.original)
     }
   ]
 }
 
-const columns: TableColumn<IUser>[] = [
+const statusMap: Record<number, { label: string; color: 'success' | 'warning' | 'error' }> = {
+  1: { label: 'Ativo', color: 'success' },
+  2: { label: 'Pendente', color: 'warning' },
+  0: { label: 'Inativo', color: 'error' },
+}
+
+const columns: ColumnDef<IUser>[] = [
   {
     id: 'select',
-    header: ({ table }) =>
+    header: ({ table }: { table: Table<IUser> }) =>
       h(UCheckbox, {
         'modelValue': table.getIsSomePageRowsSelected() ? 'indeterminate' : table.getIsAllPageRowsSelected(),
         'onUpdate:modelValue': (value: boolean | 'indeterminate') => table.toggleAllPageRowsSelected(!!value),
         'ariaLabel': 'Selecionar tudo'
       }),
-    cell: ({ row }) =>
+    cell: ({ row }: { row: Row<IUser> }) =>
       h(UCheckbox, {
         'modelValue': row.getIsSelected(),
         'onUpdate:modelValue': (value: boolean | 'indeterminate') => row.toggleSelected(!!value),
@@ -101,7 +109,7 @@ const columns: TableColumn<IUser>[] = [
     header: 'Username',
     enableColumnFilter: true,
     filterFn: 'includesString',
-    cell: ({ row }) =>
+    cell: ({ row }: { row: Row<IUser> }) =>
       h('div', { class: 'flex items-center gap-3' }, [
         h(UAvatar, { size: 'sm', alt: row.original.name }),
         h('span', {
@@ -113,17 +121,17 @@ const columns: TableColumn<IUser>[] = [
   {
     accessorKey: 'first_name',
     header: 'Primeiro Nome',
-    cell: ({ row }) => row.original.first_name || '-'
+    cell: ({ row }: { row: Row<IUser> }) => row.original.first_name || '-'
   },
   {
     accessorKey: 'last_name',
     header: 'Último Nome',
-    cell: ({ row }) => row.original.last_name || '-'
+    cell: ({ row }: { row: Row<IUser> }) => row.original.last_name || '-'
   },
   {
     accessorKey: 'roles',
     header: 'Grupos',
-    cell: ({ row }) => {
+    cell: ({ row }: { row: Row<IUser> }) => {
       const roles = row.original.roles || []
       if (roles.length > 0) {
         return h('div', { class: 'flex flex-wrap gap-1' },
@@ -138,12 +146,7 @@ const columns: TableColumn<IUser>[] = [
   {
     accessorKey: 'status',
     header: 'Estado',
-    cell: ({ row }) => {
-      const statusMap: Record<number, { label: string; color: 'success' | 'warning' | 'error' }> = {
-        1: { label: 'Ativo', color: 'success' },
-        0: { label: 'Pendente', color: 'warning' },
-        [-1]: { label: 'Desativado', color: 'error' }
-      }
+    cell: ({ row }: { row: Row<IUser> }) => {
       const s = statusMap[row.original.status] || { label: 'Desconhecido', color: 'neutral' as const }
       return h(UBadge, { variant: 'subtle', color: s.color }, () => s.label)
     }
@@ -151,7 +154,7 @@ const columns: TableColumn<IUser>[] = [
   {
     id: 'actions',
     header: '',
-    cell: ({ row }) =>
+    cell: ({ row }: { row: Row<IUser> }) =>
       h('div', { class: 'text-right' },
         h(UDropdownMenu, { content: { align: 'end' }, items: getRowItems(row) },
           () => h(UButton, { icon: 'i-lucide-ellipsis-vertical', color: 'neutral', variant: 'ghost' })

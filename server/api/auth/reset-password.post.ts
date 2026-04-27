@@ -44,7 +44,7 @@ export default defineEventHandler(async (event) => {
   // Set password, activate account (status 0 → 1), clear must_change_password
   await sql`
     UPDATE users
-    SET password = ${hashedPassword}, status = GREATEST(status, 1), must_change_password = false, updated_at = NOW()
+    SET password = ${hashedPassword}, status = 1, must_change_password = false, updated_at = NOW()
     WHERE id = ${row.user_id}
   `
   await sql`UPDATE password_reset_tokens SET used_at = NOW() WHERE id = ${row.id}`
@@ -66,7 +66,7 @@ export default defineEventHandler(async (event) => {
       name: row.name,
       email: row.email,
       permission: row.permission,
-      status: Math.max(row.status, 1),
+      status: 1,
       must_change_password: false,
       role_id: row.role_id
     }

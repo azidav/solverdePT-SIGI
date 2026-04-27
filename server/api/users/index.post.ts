@@ -22,7 +22,7 @@ export default defineEventHandler(async (event) => {
   // Create user with no password — status 0 (pending activation)
   const result = await sql`
     INSERT INTO users (username, password, name, email, department, permission, status, must_change_password)
-    VALUES (${username}, NULL, ${name}, ${email}, ${department || null}, ${permission || 2}, 0, false)
+    VALUES (${username}, NULL, ${name}, ${email}, ${department || null}, ${permission || 2}, 2, false)
     RETURNING id, username, name, email, department, permission, status
   `
 

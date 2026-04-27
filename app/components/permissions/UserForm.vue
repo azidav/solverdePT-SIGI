@@ -161,7 +161,8 @@ async function onSubmit(event: FormSubmitEvent<CreateSchema | EditSchema>) {
 
     const body: Record<string, unknown> = {
       name: fullName,
-      email: event.data.email
+      email: event.data.email,
+      job_title: event.data.job_title || null
     }
 
     let userId = props.user?.id
