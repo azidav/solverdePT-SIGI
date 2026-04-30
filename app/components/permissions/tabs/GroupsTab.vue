@@ -7,14 +7,12 @@ import type { IGroup } from '~/types/permissions'
 const UButton = resolveComponent('UButton')
 const UBadge = resolveComponent('UBadge')
 const UDropdownMenu = resolveComponent('UDropdownMenu')
-const UCheckbox = resolveComponent('UCheckbox')
 
 const toast = useToast()
 
 const loading = ref(false)
 const groups = ref<IGroup[]>([])
 const groupsTable = useTemplateRef('groupsTable')
-const rowSelection = ref({})
 const pagination = ref({ pageIndex: 0, pageSize: 10 })
 
 const showDeleteModal = ref(false)
@@ -88,21 +86,6 @@ function getRowItems(row: Row<IGroup>) {
 
 const columns: TableColumn<IGroup>[] = [
   {
-    id: 'select',
-    header: ({ table }) =>
-      h(UCheckbox, {
-        'modelValue': table.getIsSomePageRowsSelected() ? 'indeterminate' : table.getIsAllPageRowsSelected(),
-        'onUpdate:modelValue': (value: boolean | 'indeterminate') => table.toggleAllPageRowsSelected(!!value),
-        'ariaLabel': 'Selecionar tudo'
-      }),
-    cell: ({ row }) =>
-      h(UCheckbox, {
-        'modelValue': row.getIsSelected(),
-        'onUpdate:modelValue': (value: boolean | 'indeterminate') => row.toggleSelected(!!value),
-        'ariaLabel': 'Selecionar linha'
-      })
-  },
-  {
     accessorKey: 'name',
     header: 'Nome',
     enableColumnFilter: true,
@@ -171,7 +154,6 @@ onMounted(loadGroups)
 
     <UTable
       ref="groupsTable"
-      v-model:row-selection="rowSelection"
       v-model:pagination="pagination"
       :pagination-options="{ getPaginationRowModel: getPaginationRowModel() }"
       :data="groups"
@@ -187,11 +169,7 @@ onMounted(loadGroups)
       }"
     />
 
-    <div class="flex items-center justify-between gap-3 border-t border-default pt-4">
-      <div class="text-sm text-muted">
-        {{ groupsTable?.tableApi?.getFilteredSelectedRowModel().rows.length || 0 }} de
-        {{ groupsTable?.tableApi?.getFilteredRowModel().rows.length || 0 }} linha(s) selecionada(s).
-      </div>
+    <div class="flex justify-end border-t border-default pt-4">
       <UPagination
         :default-page="(groupsTable?.tableApi?.getState().pagination.pageIndex || 0) + 1"
         :items-per-page="groupsTable?.tableApi?.getState().pagination.pageSize"

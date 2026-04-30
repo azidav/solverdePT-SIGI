@@ -83,6 +83,31 @@ async function onSubmit(payload: FormSubmitEvent<Schema>) {
         </template>
       </UAuthForm>
     </UPageCard>
+
+    <UPageCard class="w-full max-w-md">
+      <div class="flex items-center justify-between gap-4">
+        <div class="flex items-center gap-3">
+          <UIcon name="i-lucide-door-open" class="size-8 text-primary shrink-0" />
+          <div>
+            <p class="text-sm font-medium">
+              Reservar Sala de Reunião
+            </p>
+            <p class="text-xs text-muted">
+              Acesso sem conta necessária
+            </p>
+          </div>
+        </div>
+        <UButton
+          label="Entrar como visitante"
+          icon="i-lucide-arrow-right"
+          trailing
+          color="primary"
+          variant="soft"
+          size="sm"
+          to="/meeting-rooms"
+        />
+      </div>
+    </UPageCard>
   </div>
 </template>
 

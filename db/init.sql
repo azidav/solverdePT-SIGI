@@ -250,3 +250,42 @@ CREATE INDEX IF NOT EXISTS idx_reset_tokens_token ON password_reset_tokens(token
 
 ALTER TABLE users ADD COLUMN IF NOT EXISTS must_change_password BOOLEAN NOT NULL DEFAULT false;
 ALTER TABLE users ADD COLUMN IF NOT EXISTS job_title VARCHAR(150);
+
+
+CREATE TABLE IF NOT EXISTS meeting_rooms (
+  id SERIAL PRIMARY KEY,
+  name VARCHAR(150) NOT NULL,
+  description TEXT,
+  image_url VARCHAR(500),
+  capacity INT DEFAULT 0,
+  location VARCHAR(200),
+  amenities TEXT,
+  status VARCHAR(20) DEFAULT 'active',
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS room_reservations (
+  id SERIAL PRIMARY KEY,
+  room_id INT NOT NULL REFERENCES meeting_rooms(id) ON DELETE CASCADE,
+  user_id INT REFERENCES users(id) ON DELETE SET NULL,
+  guest_name VARCHAR(150),
+  booking_token VARCHAR(255) UNIQUE,
+  token_expires_at TIMESTAMPTZ,
+  meeting_title VARCHAR(255) NOT NULL,
+  start_time TIMESTAMPTZ NOT NULL,
+  end_time TIMESTAMPTZ NOT NULL,
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_meeting_rooms_status ON meeting_rooms(status);
+CREATE INDEX IF NOT EXISTS idx_room_reservations_room_id ON room_reservations(room_id);
+CREATE INDEX IF NOT EXISTS idx_room_reservations_start_time ON room_reservations(start_time);
+CREATE INDEX IF NOT EXISTS idx_room_reservations_user_id ON room_reservations(user_id);
+CREATE INDEX IF NOT EXISTS idx_room_reservations_token ON room_reservations(booking_token);
+
+INSERT INTO meeting_rooms (name, description, capacity, location, amenities) VALUES
+  ('Sala Alpha', 'Sala principal com projetor HD e quadro branco', 10, 'Piso 1', 'Projetor HD, Quadro Branco, TV 65"'),
+  ('Sala Beta', 'Sala pequena e confortável para pequenas equipas', 4, 'Piso 2', 'TV 43", Teleconferência'),
+  ('Sala Gamma', 'Sala de conferências para eventos maiores', 20, 'Piso 1', 'Projetor 4K, Sistema de Som, Videoconferência')
+ON CONFLICT DO NOTHING;

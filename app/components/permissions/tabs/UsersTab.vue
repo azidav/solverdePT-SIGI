@@ -1,12 +1,11 @@
 <script setup lang="ts">
 import { getPaginationRowModel } from '@tanstack/table-core'
-import type { ColumnDef, Row, Table } from '@tanstack/table-core'
+import type { ColumnDef, Row } from '@tanstack/table-core'
 import type { IUser } from '~/types/permissions'
 
 const UButton = resolveComponent('UButton')
 const UBadge = resolveComponent('UBadge')
 const UDropdownMenu = resolveComponent('UDropdownMenu')
-const UCheckbox = resolveComponent('UCheckbox')
 const UAvatar = resolveComponent('UAvatar')
 
 const toast = useToast()
@@ -14,7 +13,6 @@ const toast = useToast()
 const loading = ref(false)
 const allUsers = ref<IUser[]>([])
 const usersTable = useTemplateRef('usersTable')
-const rowSelection = ref({})
 const pagination = ref({ pageIndex: 0, pageSize: 10 })
 
 // Active (1) + Pending activation (2)
@@ -89,21 +87,6 @@ const statusMap: Record<number, { label: string; color: 'success' | 'warning' | 
 }
 
 const columns: ColumnDef<IUser>[] = [
-  {
-    id: 'select',
-    header: ({ table }: { table: Table<IUser> }) =>
-      h(UCheckbox, {
-        'modelValue': table.getIsSomePageRowsSelected() ? 'indeterminate' : table.getIsAllPageRowsSelected(),
-        'onUpdate:modelValue': (value: boolean | 'indeterminate') => table.toggleAllPageRowsSelected(!!value),
-        'ariaLabel': 'Selecionar tudo'
-      }),
-    cell: ({ row }: { row: Row<IUser> }) =>
-      h(UCheckbox, {
-        'modelValue': row.getIsSelected(),
-        'onUpdate:modelValue': (value: boolean | 'indeterminate') => row.toggleSelected(!!value),
-        'ariaLabel': 'Selecionar linha'
-      })
-  },
   {
     accessorKey: 'username',
     header: 'Username',
@@ -186,7 +169,6 @@ onMounted(loadUsers)
 
     <UTable
       ref="usersTable"
-      v-model:row-selection="rowSelection"
       v-model:pagination="pagination"
       :pagination-options="{ getPaginationRowModel: getPaginationRowModel() }"
       :data="activeUsers"
@@ -202,11 +184,7 @@ onMounted(loadUsers)
       }"
     />
 
-    <div class="flex items-center justify-between gap-3 border-t border-default pt-4">
-      <div class="text-sm text-muted">
-        {{ usersTable?.tableApi?.getFilteredSelectedRowModel().rows.length || 0 }} de
-        {{ usersTable?.tableApi?.getFilteredRowModel().rows.length || 0 }} linha(s) selecionada(s).
-      </div>
+    <div class="flex justify-end border-t border-default pt-4">
       <UPagination
         :default-page="(usersTable?.tableApi?.getState().pagination.pageIndex || 0) + 1"
         :items-per-page="usersTable?.tableApi?.getState().pagination.pageSize"
