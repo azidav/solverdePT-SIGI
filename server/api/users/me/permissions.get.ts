@@ -21,14 +21,14 @@ export default defineEventHandler(async (event) => {
 
   const user = users[0]
 
-  // Get permissions
+  // Get permissions via user_roles (multi-role, authoritative source)
   const permissions = await sql`
     SELECT DISTINCT p.id, p.code, p.description, p.module, p.action
-    FROM users u
-    INNER JOIN roles r ON u.role_id = r.id
+    FROM user_roles ur
+    INNER JOIN roles r ON ur.role_id = r.id
     INNER JOIN role_permissions rp ON r.id = rp.role_id
     INNER JOIN permissions p ON rp.permission_id = p.id
-    WHERE u.id = ${currentUser.id}
+    WHERE ur.user_id = ${currentUser.id}
     ORDER BY p.module, p.action
   `
 

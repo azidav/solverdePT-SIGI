@@ -14,14 +14,14 @@ export const hasUserPermission = async (
   const currentUser = await getUserFromEvent(event)
   if (!currentUser) return false
 
-  // Fetch user's permissions through role
+  // Fetch user's permissions via user_roles (multi-role)
   const userPermissions = await sql`
     SELECT DISTINCT p.code
-    FROM users u
-    INNER JOIN roles r ON u.role_id = r.id
+    FROM user_roles ur
+    INNER JOIN roles r ON ur.role_id = r.id
     INNER JOIN role_permissions rp ON r.id = rp.role_id
     INNER JOIN permissions p ON rp.permission_id = p.id
-    WHERE u.id = ${currentUser.id}
+    WHERE ur.user_id = ${currentUser.id}
   `
 
   const userPermissionCodes = userPermissions.map((p: any) => p.code)
@@ -58,11 +58,11 @@ export const authorize = (requiredPermissions: string[], requireAll: boolean = f
 export const getUserPermissions = async (userId: number): Promise<string[]> => {
   const permissions = await sql`
     SELECT DISTINCT p.code
-    FROM users u
-    INNER JOIN roles r ON u.role_id = r.id
+    FROM user_roles ur
+    INNER JOIN roles r ON ur.role_id = r.id
     INNER JOIN role_permissions rp ON r.id = rp.role_id
     INNER JOIN permissions p ON rp.permission_id = p.id
-    WHERE u.id = ${userId}
+    WHERE ur.user_id = ${userId}
   `
 
   return permissions.map((p: any) => p.code)

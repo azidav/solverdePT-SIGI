@@ -6,7 +6,6 @@ import type { IUser } from '~/types/permissions'
 
 const UButton = resolveComponent('UButton')
 const UDropdownMenu = resolveComponent('UDropdownMenu')
-const UCheckbox = resolveComponent('UCheckbox')
 const UAvatar = resolveComponent('UAvatar')
 
 const toast = useToast()
@@ -14,7 +13,6 @@ const toast = useToast()
 const loading = ref(false)
 const deletedUsers = ref<IUser[]>([])
 const usersTable = useTemplateRef('usersTable')
-const rowSelection = ref({})
 const pagination = ref({ pageIndex: 0, pageSize: 10 })
 
 const showDeleteModal = ref(false)
@@ -75,21 +73,6 @@ function getRowItems(row: Row<IUser>) {
 
 const columns: TableColumn<IUser>[] = [
   {
-    id: 'select',
-    header: ({ table }) =>
-      h(UCheckbox, {
-        'modelValue': table.getIsSomePageRowsSelected() ? 'indeterminate' : table.getIsAllPageRowsSelected(),
-        'onUpdate:modelValue': (value: boolean | 'indeterminate') => table.toggleAllPageRowsSelected(!!value),
-        'ariaLabel': 'Selecionar tudo'
-      }),
-    cell: ({ row }) =>
-      h(UCheckbox, {
-        'modelValue': row.getIsSelected(),
-        'onUpdate:modelValue': (value: boolean | 'indeterminate') => row.toggleSelected(!!value),
-        'ariaLabel': 'Selecionar linha'
-      })
-  },
-  {
     accessorKey: 'username',
     header: 'Username',
     enableColumnFilter: true,
@@ -149,7 +132,6 @@ onMounted(loadDeletedUsers)
 
     <UTable
       ref="usersTable"
-      v-model:row-selection="rowSelection"
       v-model:pagination="pagination"
       :pagination-options="{ getPaginationRowModel: getPaginationRowModel() }"
       :data="deletedUsers"
@@ -165,11 +147,7 @@ onMounted(loadDeletedUsers)
       }"
     />
 
-    <div class="flex items-center justify-between gap-3 border-t border-default pt-4">
-      <div class="text-sm text-muted">
-        {{ usersTable?.tableApi?.getFilteredSelectedRowModel().rows.length || 0 }} de
-        {{ usersTable?.tableApi?.getFilteredRowModel().rows.length || 0 }} linha(s) selecionada(s).
-      </div>
+    <div class="flex justify-end border-t border-default pt-4">
       <UPagination
         :default-page="(usersTable?.tableApi?.getState().pagination.pageIndex || 0) + 1"
         :items-per-page="usersTable?.tableApi?.getState().pagination.pageSize"

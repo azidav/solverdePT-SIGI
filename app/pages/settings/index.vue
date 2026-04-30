@@ -13,7 +13,8 @@ interface ConfigVar {
 }
 
 const SECTION_META: Record<string, { label: string; icon: string }> = {
-  email: { label: 'Configurações de Email', icon: 'i-lucide-mail' }
+  email: { label: 'Configurações de Email', icon: 'i-lucide-mail' },
+  rooms: { label: 'Salas de Reunião', icon: 'i-lucide-door-open' }
 }
 
 const toast = useToast()

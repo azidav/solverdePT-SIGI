@@ -1,43 +1,67 @@
 <script setup lang="ts">
 import type { NavigationMenuItem } from '@nuxt/ui'
 
-const route = useRoute()
-const { can, canManageRoles, canManageUsers } = useRbac()
+const { can, canManageRoles } = useRbac()
 
 const open = ref(false)
 
 const links = computed(() => {
   const mainLinks: NavigationMenuItem[] = []
 
-  // Home - sempre visível
   mainLinks.push({
     label: 'Home',
     icon: 'i-lucide-house',
     to: '/',
-    onSelect: () => {
-      open.value = false
-    }
+    onSelect: () => { open.value = false }
   })
 
-  // Settings - apenas com permissão SETTINGS:VIEW
+  if (can('ROOMS:VIEW')) {
+    if (can('ROOMS:MANAGE')) {
+      mainLinks.push({
+        label: 'Salas de Reunião',
+        icon: 'i-lucide-door-open',
+        to: '/meeting-rooms',
+        defaultOpen: true,
+        type: 'trigger',
+        children: [
+          {
+            label: 'Fazer Reserva',
+            icon: 'i-lucide-calendar-plus',
+            to: '/meeting-rooms',
+            exact: true,
+            onSelect: () => { open.value = false }
+          },
+          {
+            label: 'Gerir Salas',
+            icon: 'i-lucide-settings-2',
+            to: '/meeting-rooms/manage',
+            onSelect: () => { open.value = false }
+          }
+        ]
+      })
+    } else {
+      mainLinks.push({
+        label: 'Salas de Reunião',
+        icon: 'i-lucide-door-open',
+        to: '/meeting-rooms',
+        onSelect: () => { open.value = false }
+      })
+    }
+  }
+
   if (can('SETTINGS:VIEW')) {
     const settingsChildren: NavigationMenuItem[] = [{
       label: 'Geral',
       to: '/settings',
       exact: true,
-      onSelect: () => {
-        open.value = false
-      }
+      onSelect: () => { open.value = false }
     }]
 
-    // Roles & Permissões - requer SETTINGS:MANAGE_ROLES
     if (canManageRoles.value) {
       settingsChildren.push({
         label: 'Roles & Permissões',
         to: '/permissions',
-        onSelect: () => {
-          open.value = false
-        }
+        onSelect: () => { open.value = false }
       })
 
       settingsChildren.push({
@@ -45,7 +69,6 @@ const links = computed(() => {
         to: '/audit-logs',
         onSelect: () => { open.value = false }
       })
-
     }
 
     mainLinks.push({
@@ -102,6 +125,5 @@ const groups = computed(() => [{
     <UDashboardSearch :groups="groups" />
 
     <slot />
-
   </UDashboardGroup>
 </template>
