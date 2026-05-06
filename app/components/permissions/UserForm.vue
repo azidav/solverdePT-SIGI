@@ -16,10 +16,12 @@ interface IUser {
   last_name: string
   email: string
   job_title?: string
+  birthday?: string | null
+  hire_date?: string | null
   role_id: number | null
   role_name?: string
   status: number
-  roles?: { id: number; name: string }[]
+  roles?: { id: number, name: string }[]
 }
 
 const props = defineProps<{
@@ -37,12 +39,13 @@ const loading = ref(false)
 
 const isEditMode = computed(() => !!props.user?.id)
 
-// Schema de validação
 const baseSchema = {
   first_name: z.string().min(2, 'Primeiro nome deve ter pelo menos 2 caracteres'),
   last_name: z.string().min(2, 'Último nome deve ter pelo menos 2 caracteres'),
   email: z.email('Email inválido'),
-  job_title: z.string().optional()
+  job_title: z.string().optional(),
+  birthday: z.string().optional(),
+  hire_date: z.string().optional()
 }
 
 const createSchema = z.object({
@@ -58,26 +61,23 @@ const editSchema = z.object({
 const schema = computed(() => isEditMode.value ? editSchema : createSchema)
 
 type CreateSchema = z.output<typeof createSchema>
-type EditSchema = z.output<typeof editSchema>
 
-// Estado do formulário
 const state = reactive<Partial<CreateSchema>>({
   first_name: '',
   last_name: '',
   username: '',
   email: '',
-  job_title: ''
+  job_title: '',
+  birthday: '',
+  hire_date: ''
 })
 
-// Grupos associados ao utilizador
 const assignedGroups = ref<IGroup[]>([])
 
-// Grupos disponíveis (não associados)
 const availableGroups = computed(() =>
   props.groups.filter(g => !assignedGroups.value.some(ag => ag.id === g.id))
 )
 
-// Modal de seleção de grupos
 const showGroupModal = ref(false)
 const groupModalSearch = ref('')
 const selectedInModal = ref<number[]>([])
@@ -108,12 +108,14 @@ function confirmGroupModal() {
   showGroupModal.value = false
 }
 
-// Remover grupo
 function removeGroup(groupId: number) {
   assignedGroups.value = assignedGroups.value.filter(g => g.id !== groupId)
 }
 
-// Inicializar dados do utilizador
+function datePart(d: string | null | undefined): string {
+  return d ? (d.split('T')[0] ?? '') : ''
+}
+
 function initUserData() {
   assignedGroups.value = []
   selectedInModal.value = []
@@ -125,19 +127,17 @@ function initUserData() {
     state.username = props.user.username || ''
     state.email = props.user.email || ''
     state.job_title = props.user.job_title || ''
+    state.birthday = datePart(props.user.birthday)
+    state.hire_date = datePart(props.user.hire_date)
 
-    // Carregar grupos associados (múltiplos roles)
     if (props.user.roles && Array.isArray(props.user.roles) && props.user.roles.length > 0) {
-      assignedGroups.value = props.user.roles.map(r => {
+      assignedGroups.value = props.user.roles.map((r) => {
         const fullGroup = props.groups.find(g => g.id === r.id)
         return fullGroup || { id: r.id, name: r.name, description: '' }
       })
     } else if (props.user.role_id) {
-      // Fallback para role_id único (compatibilidade)
       const group = props.groups.find(g => g.id === props.user!.role_id)
-      if (group) {
-        assignedGroups.value = [group]
-      }
+      if (group) assignedGroups.value = [group]
     }
   } else {
     state.first_name = ''
@@ -145,15 +145,19 @@ function initUserData() {
     state.username = ''
     state.email = ''
     state.job_title = ''
+    state.birthday = ''
+    state.hire_date = ''
   }
 }
 
-// Submeter formulário
-async function onSubmit(event: FormSubmitEvent<CreateSchema | EditSchema>) {
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+async function onSubmit(event?: FormSubmitEvent<any>) {
+  if (!event) return
   loading.value = true
   if (assignedGroups.value.length === 0) {
     toast.add({ title: 'Grupo obrigatório', description: 'O utilizador deve ter pelo menos um grupo associado.', color: 'error' })
-    return loading.value = false
+    loading.value = false
+    return
   }
 
   try {
@@ -162,25 +166,24 @@ async function onSubmit(event: FormSubmitEvent<CreateSchema | EditSchema>) {
     const body: Record<string, unknown> = {
       name: fullName,
       email: event.data.email,
-      job_title: event.data.job_title || null
+      job_title: event.data.job_title || null,
+      birthday: event.data.birthday || null,
+      hire_date: event.data.hire_date || null
     }
 
     let userId = props.user?.id
 
     if (!isEditMode.value) {
-      body.username = (event.data as CreateSchema).username
+      body.username = event.data.username
       body.status = 1
-      body.permission = 3 // Default: Utilizador
+      body.permission = 3
 
-      // Criar utilizador primeiro
       const result = await useApiFetch('/api/users', { method: 'POST', body }) as { id: number }
       userId = result.id
     } else {
-      // Atualizar utilizador
       await useApiFetch(`/api/users/${userId}`, { method: 'PUT', body })
     }
 
-    // Atualizar roles (múltiplos)
     if (userId) {
       const roleIds = assignedGroups.value.map(g => g.id)
       await useApiFetch('/api/user-roles', {
@@ -204,7 +207,6 @@ async function onSubmit(event: FormSubmitEvent<CreateSchema | EditSchema>) {
   }
 }
 
-// Watch para atualizar quando o utilizador muda
 watch(() => props.user, () => {
   initUserData()
 }, { immediate: true })
@@ -215,15 +217,21 @@ onMounted(() => {
 </script>
 
 <template>
+  <!-- eslint-disable-next-line @typescript-eslint/no-explicit-any -->
   <UForm
-    :schema="schema"
+    :schema="(schema as any)"
     :state="state"
     class="space-y-4"
     @submit="onSubmit"
   >
     <!-- Linha 1: First name / Last name -->
     <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-      <UFormField class="w-full" label="Primeiro Nome" name="first_name" required>
+      <UFormField
+        class="w-full"
+        label="Primeiro Nome"
+        name="first_name"
+        required
+      >
         <UInput
           v-model="state.first_name"
           class="w-full"
@@ -231,7 +239,12 @@ onMounted(() => {
         />
       </UFormField>
 
-      <UFormField class="w-full" label="Último Nome" name="last_name" required>
+      <UFormField
+        class="w-full"
+        label="Último Nome"
+        name="last_name"
+        required
+      >
         <UInput
           v-model="state.last_name"
           class="w-full"
@@ -242,7 +255,12 @@ onMounted(() => {
 
     <!-- Linha 2: Username / Email -->
     <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-      <UFormField class="w-full" label="Username" name="username" :required="!isEditMode">
+      <UFormField
+        class="w-full"
+        label="Username"
+        name="username"
+        :required="!isEditMode"
+      >
         <UInput
           v-model="state.username"
           class="w-full"
@@ -251,7 +269,12 @@ onMounted(() => {
         />
       </UFormField>
 
-      <UFormField class="w-full" label="Email" name="email" required>
+      <UFormField
+        class="w-full"
+        label="Email"
+        name="email"
+        required
+      >
         <UInput
           v-model="state.email"
           class="w-full"
@@ -261,13 +284,41 @@ onMounted(() => {
       </UFormField>
     </div>
 
-    <!-- Linha 3: Job title -->
+    <!-- Linha 3: Job title / Birthday -->
     <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-      <UFormField label="Cargo / Função" name="job_title">
+      <UFormField
+        label="Cargo / Função"
+        name="job_title"
+      >
         <UInput
           v-model="state.job_title"
           class="w-full"
           placeholder="Ex: Desenvolvedor, Gestor de Projeto..."
+        />
+      </UFormField>
+
+      <UFormField
+        label="Data de Nascimento"
+        name="birthday"
+      >
+        <UInput
+          v-model="state.birthday"
+          type="date"
+          class="w-full"
+        />
+      </UFormField>
+    </div>
+
+    <!-- Linha 4: Hire date -->
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+      <UFormField
+        label="Trabalha desde"
+        name="hire_date"
+      >
+        <UInput
+          v-model="state.hire_date"
+          type="date"
+          class="w-full"
         />
       </UFormField>
     </div>
@@ -278,7 +329,9 @@ onMounted(() => {
         <div class="flex items-center justify-between">
           <div class="flex items-center gap-2">
             <UIcon name="i-lucide-shield" class="size-4 text-primary" />
-            <h3 class="font-semibold text-sm">Grupos Associados</h3>
+            <h3 class="font-semibold text-sm">
+              Grupos Associados
+            </h3>
           </div>
           <UButton
             size="xs"
@@ -292,7 +345,6 @@ onMounted(() => {
       </template>
 
       <div class="space-y-3">
-        <!-- Grupos associados como badges -->
         <div v-if="assignedGroups.length > 0" class="flex flex-wrap gap-2">
           <UBadge
             v-for="group in assignedGroups"
@@ -339,7 +391,11 @@ onMounted(() => {
   </UForm>
 
   <!-- Modal: Selecionar Grupos -->
-  <UModal v-model:open="showGroupModal" title="Selecionar Grupos" :ui="{ content: 'max-w-md' }">
+  <UModal
+    v-model:open="showGroupModal"
+    title="Selecionar Grupos"
+    :ui="{ content: 'max-w-md' }"
+  >
     <template #body>
       <div class="space-y-3">
         <UInput
@@ -373,7 +429,12 @@ onMounted(() => {
         <div class="flex items-center justify-between pt-1">
           <span class="text-sm text-muted">{{ selectedInModal.length }} selecionado(s)</span>
           <div class="flex gap-2">
-            <UButton label="Cancelar" color="neutral" variant="subtle" @click="showGroupModal = false" />
+            <UButton
+              label="Cancelar"
+              color="neutral"
+              variant="subtle"
+              @click="showGroupModal = false"
+            />
             <UButton
               label="Adicionar"
               color="primary"

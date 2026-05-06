@@ -37,7 +37,7 @@ const props = defineProps<{
   authUserId: number | null
   myTokenIds: number[]
   isPastDate: boolean
-  outlookDefaultBody: string
+  outlookDefaultBody?: string
 }>()
 
 const emit = defineEmits<{
@@ -78,7 +78,7 @@ function toOutlookDt(iso: string) {
 }
 
 function outlookUrl(r: Reservation) {
-  const body = r.description?.trim() || props.outlookDefaultBody
+  const body = r.description?.trim() || props.outlookDefaultBody || ''
   const params = new URLSearchParams({
     subject: r.meeting_title,
     body,

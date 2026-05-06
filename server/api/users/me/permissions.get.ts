@@ -34,6 +34,14 @@ export default defineEventHandler(async (event) => {
 
   const permissionCodes = permissions.map((p: any) => p.code)
 
+  // Inject synthetic flag if user is a member of any approval level
+  const [levelMembership] = await sql`
+    SELECT 1 FROM approval_level_members WHERE user_id = ${currentUser.id} LIMIT 1
+  `
+  if (levelMembership && !permissionCodes.includes('VACATION:APPROVE')) {
+    permissionCodes.push('VACATION:APPROVE')
+  }
+
   return {
     user: {
       id: user.id,

@@ -100,6 +100,79 @@ export async function sendEmail(to: string, subject: string, html: string): Prom
   }
 }
 
+// ─── Vacation notification emails ────────────────────────────────────────────
+
+export async function sendVacationPendingApprovalEmail(
+  approvers: { email: string, name: string }[],
+  opts: { employeeName: string, startDate: string, endDate: string, daysCount: number, requestUrl: string, levelName: string }
+): Promise<void> {
+  const subject = `Pedido de férias aguarda a sua aprovação — ${opts.employeeName}`
+  const html = `
+    <div style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;padding:24px;">
+      <h2 style="color:#00C16A;">Pedido de Férias para Aprovação</h2>
+      <p>O colaborador <strong>${opts.employeeName}</strong> submeteu um pedido de férias que aguarda aprovação no nível <strong>${opts.levelName}</strong>.</p>
+      <div style="background:#f5f5f5;border-radius:8px;padding:16px;margin:16px 0;">
+        <p style="margin:4px 0;"><strong>Período:</strong> ${opts.startDate} → ${opts.endDate}</p>
+        <p style="margin:4px 0;"><strong>Dias úteis:</strong> ${opts.daysCount}</p>
+      </div>
+      <a href="${opts.requestUrl}" style="display:inline-block;background:#00C16A;color:white;padding:12px 28px;border-radius:8px;text-decoration:none;font-weight:bold;margin:16px 0;">
+        Ver Pedido
+      </a>
+      <hr style="border:none;border-top:1px solid #eee;margin:24px 0;">
+      <p style="font-size:12px;color:#999;">Link direto: <a href="${opts.requestUrl}">${opts.requestUrl}</a></p>
+    </div>
+  `
+  await Promise.all(
+    approvers.map(a =>
+      sendEmail(a.email, subject, html).catch(err => console.error('[Email] Falha aprovador', a.email, err))
+    )
+  )
+}
+
+export async function sendVacationApprovedEmail(
+  to: string, name: string,
+  opts: { startDate: string, endDate: string, daysCount: number, requestUrl: string }
+): Promise<void> {
+  const subject = 'O seu pedido de férias foi aprovado! ✅'
+  const html = `
+    <div style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;padding:24px;">
+      <h2 style="color:#00C16A;">Pedido de Férias Aprovado</h2>
+      <p>Olá <strong>${name}</strong>,</p>
+      <p>O seu pedido de férias foi <strong>aprovado</strong> por todos os níveis.</p>
+      <div style="background:#f0fdf4;border-radius:8px;padding:16px;margin:16px 0;border:1px solid #bbf7d0;">
+        <p style="margin:4px 0;"><strong>Período:</strong> ${opts.startDate} → ${opts.endDate}</p>
+        <p style="margin:4px 0;"><strong>Dias úteis:</strong> ${opts.daysCount}</p>
+      </div>
+      <a href="${opts.requestUrl}" style="display:inline-block;background:#00C16A;color:white;padding:12px 28px;border-radius:8px;text-decoration:none;font-weight:bold;margin:16px 0;">
+        Ver Pedido
+      </a>
+    </div>
+  `
+  await sendEmail(to, subject, html).catch(err => console.error('[Email] Férias aprovadas', err))
+}
+
+export async function sendVacationRejectedEmail(
+  to: string, name: string,
+  opts: { startDate: string, endDate: string, comment: string | undefined, requestUrl: string }
+): Promise<void> {
+  const subject = 'O seu pedido de férias foi rejeitado'
+  const html = `
+    <div style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;padding:24px;">
+      <h2 style="color:#ef4444;">Pedido de Férias Rejeitado</h2>
+      <p>Olá <strong>${name}</strong>,</p>
+      <p>O seu pedido de férias foi <strong>rejeitado</strong>.</p>
+      <div style="background:#fef2f2;border-radius:8px;padding:16px;margin:16px 0;border:1px solid #fecaca;">
+        <p style="margin:4px 0;"><strong>Período:</strong> ${opts.startDate} → ${opts.endDate}</p>
+        ${opts.comment ? `<p style="margin:8px 0 4px;"><strong>Motivo:</strong> ${opts.comment}</p>` : ''}
+      </div>
+      <a href="${opts.requestUrl}" style="display:inline-block;background:#6b7280;color:white;padding:12px 28px;border-radius:8px;text-decoration:none;font-weight:bold;margin:16px 0;">
+        Ver Pedido
+      </a>
+    </div>
+  `
+  await sendEmail(to, subject, html).catch(err => console.error('[Email] Férias rejeitadas', err))
+}
+
 export async function sendAccountActivationEmail(
   to: string,
   name: string,

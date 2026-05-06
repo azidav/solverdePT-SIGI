@@ -15,6 +15,7 @@ interface ConfigVar {
 const SECTION_META: Record<string, { label: string, icon: string }> = {
   email: { label: 'Configurações de Email', icon: 'i-lucide-mail' },
   rooms: { label: 'Salas de Reunião', icon: 'i-lucide-door-open' },
+  ferias: { label: 'Férias', icon: 'i-lucide-calendar-days' },
   msgraph: { label: 'Integração Microsoft 365', icon: 'i-simple-icons-microsoftoutlook' }
 }
 

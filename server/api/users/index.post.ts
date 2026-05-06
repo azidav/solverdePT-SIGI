@@ -19,7 +19,7 @@ export default defineEventHandler(async (event) => {
     throw createError({ statusCode: 400, message: 'Missing required fields' })
   }
 
-  // Create user with no password — status 0 (pending activation)
+  // Create user with no password — status 2 (pending activation)
   const result = await sql`
     INSERT INTO users (username, password, name, email, department, permission, status, must_change_password)
     VALUES (${username}, NULL, ${name}, ${email}, ${department || null}, ${permission || 2}, 2, false)

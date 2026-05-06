@@ -37,6 +37,15 @@ async function loadUsers() {
   }
 }
 
+async function resendActivation(user: IUser) {
+  try {
+    await useApiFetch(`/api/users/${user.id}/resend-activation`, { method: 'POST' })
+    toast.add({ title: 'Email enviado', description: `Email de ativação reenviado para ${user.email}`, color: 'success' })
+  } catch {
+    toast.add({ title: 'Erro', description: 'Erro ao reenviar email de ativação', color: 'error' })
+  }
+}
+
 async function toggleStatus(user: IUser) {
   // Active (1) or Pending (2) → Deactivate (0); Inactive (0) → Activate (1)
   const newStatus = user.status >= 1 ? 0 : 1
@@ -55,7 +64,9 @@ async function toggleStatus(user: IUser) {
 
 function getRowItems(row: Row<IUser>) {
   const canDeactivate = row.original.status >= 1
-  return [
+  const isPending = row.original.status === 2
+
+  const items: object[] = [
     { type: 'label' as const, label: 'Ações' },
     {
       label: 'Editar',
@@ -69,15 +80,27 @@ function getRowItems(row: Row<IUser>) {
         navigator.clipboard.writeText(row.original.email)
         toast.add({ title: 'Copiado', description: 'Email copiado para a área de transferência' })
       }
-    },
-    { type: 'separator' as const },
-    {
-      label: canDeactivate ? 'Desativar' : 'Ativar',
-      icon: canDeactivate ? 'i-lucide-user-x' : 'i-lucide-user-check',
-      color: canDeactivate ? 'warning' as const : 'success' as const,
-      onSelect: () => toggleStatus(row.original)
     }
   ]
+
+  if (isPending) {
+    items.push({ type: 'separator' as const })
+    items.push({
+      label: 'Reenviar email de ativação',
+      icon: 'i-lucide-mail',
+      onSelect: () => resendActivation(row.original)
+    })
+  }
+
+  items.push({ type: 'separator' as const })
+  items.push({
+    label: canDeactivate ? 'Desativar' : 'Ativar',
+    icon: canDeactivate ? 'i-lucide-user-x' : 'i-lucide-user-check',
+    color: canDeactivate ? 'warning' as const : 'success' as const,
+    onSelect: () => toggleStatus(row.original)
+  })
+
+  return items
 }
 
 const statusMap: Record<number, { label: string; color: 'success' | 'warning' | 'error' }> = {

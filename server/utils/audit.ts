@@ -1,8 +1,8 @@
 import sql from './db'
 import type { H3Event } from 'h3'
 
-export type AuditAction = 'CREATE' | 'UPDATE' | 'DELETE' | 'LOGIN' | 'LOGOUT' | 'ASSIGN' | 'UNASSIGN'
-export type AuditEntityType = 'USER' | 'ROLE' | 'PERMISSION' | 'USER_ROLE' | 'SESSION'
+export type AuditAction = 'CREATE' | 'UPDATE' | 'DELETE' | 'LOGIN' | 'LOGOUT' | 'ASSIGN' | 'UNASSIGN' | 'APPROVE' | 'REJECT' | 'CANCEL'
+export type AuditEntityType = 'USER' | 'ROLE' | 'PERMISSION' | 'USER_ROLE' | 'SESSION' | 'VACATION_REQUEST' | 'BLACKOUT_DATE'
 
 interface AuditLogParams {
   userId?: number
