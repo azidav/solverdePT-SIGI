@@ -15,7 +15,7 @@ interface Balance {
 
 const toast = useToast()
 const router = useRouter()
-const { formatDate, localDateStr } = useVacationUtils()
+const { formatDate, localDateStr, formatDaysLabel } = useVacationUtils()
 
 const todayStr = localDateStr()
 
@@ -24,7 +24,13 @@ const form = reactive({
   end_date: '',
   type: 'annual',
   reason: '',
-  include_weekends: false
+  include_weekends: false,
+  half_day: false
+})
+
+// When half_day is toggled, lock end_date to start_date
+watch(() => form.half_day, (v) => {
+  if (v && form.start_date) form.end_date = form.start_date
 })
 
 const blackouts = ref<Blackout[]>([])
@@ -53,11 +59,18 @@ const showBirthdayOption = computed(() =>
   form.type === 'annual' && (balance.value?.birthday_bonus ?? 0) > 0
 )
 
-const TYPE_OPTIONS = [
-  { label: 'Férias Anuais', value: 'annual' },
-  { label: 'Baixa Médica', value: 'sick' },
-  { label: 'Outro', value: 'other' }
-]
+interface VacationType {
+  id: number
+  name: string
+  code: string
+  uses_balance: boolean
+  requires_approval_chain: boolean
+}
+
+const vacationTypes = ref<VacationType[]>([])
+const TYPE_OPTIONS = computed(() =>
+  vacationTypes.value.map(t => ({ label: t.name, value: t.code }))
+)
 
 // Blackouts that overlap the currently selected range
 const overlappingBlackouts = computed(() => {
@@ -86,7 +99,7 @@ async function loadBalance() {
 // Debounced preview: fetch working days from server whenever both dates are valid
 let previewTimer: ReturnType<typeof setTimeout> | null = null
 
-watch([() => form.start_date, () => form.end_date, () => form.include_weekends], ([start, end]) => {
+watch([() => form.start_date, () => form.end_date, () => form.include_weekends, () => form.half_day], ([start, end]) => {
   previewDays.value = null
   if (previewTimer) clearTimeout(previewTimer)
   if (!start || !end || start > end) return
@@ -97,7 +110,8 @@ watch([() => form.start_date, () => form.end_date, () => form.include_weekends],
       const params = new URLSearchParams({
         start_date: start as string,
         end_date: end as string,
-        include_weekends: String(form.include_weekends)
+        include_weekends: String(form.include_weekends),
+        half_day: String(form.half_day)
       })
       const res = await useApiFetch(`/api/vacation-requests/preview?${params}`) as { days_count: number }
       previewDays.value = res.days_count
@@ -110,11 +124,11 @@ watch([() => form.start_date, () => form.end_date, () => form.include_weekends],
 })
 
 async function submit() {
-  if (!form.start_date || !form.end_date) {
+  if (!form.start_date || (!form.half_day && !form.end_date)) {
     toast.add({ title: 'Selecione as datas de início e fim', color: 'warning' })
     return
   }
-  if (form.start_date > form.end_date) {
+  if (!form.half_day && form.start_date > form.end_date) {
     toast.add({ title: 'A data de início não pode ser posterior à data de fim', color: 'warning' })
     return
   }
@@ -125,9 +139,12 @@ async function submit() {
 
   submitting.value = true
   try {
+    const submitBody = { ...form, reason: form.reason || undefined }
+    if (form.half_day) submitBody.end_date = form.start_date
+
     const res = await useApiFetch('/api/vacation-requests', {
       method: 'POST',
-      body: { ...form, reason: form.reason || undefined }
+      body: submitBody
     }) as { days_count: number }
 
     // Also submit birthday day-off as a separate request
@@ -139,7 +156,7 @@ async function submit() {
     }
 
     const extra = useBirthdayDay.value ? ' + 1 dia de aniversário' : ''
-    toast.add({ title: `Pedido submetido — ${res.days_count} dia(s) útil(eis)${extra}`, color: 'success' })
+    toast.add({ title: `Pedido submetido — ${formatDaysLabel(res.days_count)}${extra}`, color: 'success' })
     router.push('/ferias')
   } catch (e: unknown) {
     toast.add({ title: (e as { data?: { message?: string } })?.data?.message || 'Erro ao submeter pedido', color: 'error' })
@@ -148,7 +165,23 @@ async function submit() {
   }
 }
 
+async function loadTypes() {
+  try {
+    vacationTypes.value = await useApiFetch('/api/vacation-types') as VacationType[]
+    if (vacationTypes.value.length > 0 && !form.type) {
+      form.type = vacationTypes.value[0]!.code
+    }
+  } catch {}
+}
+
+// Current type settings (used to gate balance/chain logic in the server,
+// but also used client-side to hide the "include weekends" toggle for non-balance types)
+const currentTypeSettings = computed(() =>
+  vacationTypes.value.find(t => t.code === form.type)
+)
+
 onMounted(() => {
+  loadTypes()
   loadBlackouts()
   loadBalance()
 })
@@ -181,28 +214,37 @@ onMounted(() => {
             />
           </UFormField>
 
+          <!-- Half day toggle -->
+          <UCheckbox
+            v-model="form.half_day"
+            label="Meio dia"
+          />
+
           <!-- Dates -->
-          <div class="grid grid-cols-2 gap-3">
-            <UFormField label="Data de Início" required>
-              <UInput
-                v-model="form.start_date"
-                type="date"
-                :min="todayStr"
-                class="w-full"
-              />
-            </UFormField>
-            <UFormField label="Data de Fim" required>
-              <UInput
-                v-model="form.end_date"
-                type="date"
-                :min="form.start_date || todayStr"
-                class="w-full"
-              />
-            </UFormField>
+          <div :class="form.half_day ? 'grid-cols-1' : 'grid grid-cols-2 gap-3'">
+            <div :class="form.half_day ? '' : 'grid grid-cols-2 gap-3'">
+              <UFormField label="Data de Início" required>
+                <UInput
+                  v-model="form.start_date"
+                  type="date"
+                  :min="todayStr"
+                  class="w-full"
+                />
+              </UFormField>
+              <UFormField v-if="!form.half_day" label="Data de Fim" required>
+                <UInput
+                  v-model="form.end_date"
+                  type="date"
+                  :min="form.start_date || todayStr"
+                  class="w-full"
+                />
+              </UFormField>
+            </div>
           </div>
 
-          <!-- Include weekends -->
+          <!-- Include weekends (only for multi-day types that use balance) -->
           <UCheckbox
+            v-if="!form.half_day && currentTypeSettings?.uses_balance !== false"
             v-model="form.include_weekends"
             label="Incluir fins de semana"
           />
@@ -219,11 +261,7 @@ onMounted(() => {
             />
             <template v-else-if="previewDays !== null">
               <UIcon name="i-lucide-calendar-check" class="size-4 text-primary" />
-              <span>
-                <span class="font-semibold">{{ previewDays }}</span>
-                dia{{ previewDays !== 1 ? 's' : '' }}
-                <template v-if="!form.include_weekends">útil{{ previewDays !== 1 ? 'eis' : '' }}</template>
-              </span>
+              <span class="font-semibold">{{ formatDaysLabel(previewDays) }}</span>
               <span v-if="previewDays === 0" class="text-error-500 text-xs">
                 — nenhum dia útil no período
               </span>

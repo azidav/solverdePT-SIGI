@@ -13,7 +13,7 @@ export default defineEventHandler(async (event) => {
   }
 
   const body = await readBody(event)
-  const { username, name, email, department, permission } = body
+  const { username, name, email, department, permission, employee_no } = body
 
   if (!username || !name || !email) {
     throw createError({ statusCode: 400, message: 'Missing required fields' })
@@ -21,9 +21,9 @@ export default defineEventHandler(async (event) => {
 
   // Create user with no password — status 2 (pending activation)
   const result = await sql`
-    INSERT INTO users (username, password, name, email, department, permission, status, must_change_password)
-    VALUES (${username}, NULL, ${name}, ${email}, ${department || null}, ${permission || 2}, 2, false)
-    RETURNING id, username, name, email, department, permission, status
+    INSERT INTO users (username, password, name, email, department, permission, employee_no, status, must_change_password)
+    VALUES (${username}, NULL, ${name}, ${email}, ${department || null}, ${permission || 2}, ${employee_no || null}, 2, false)
+    RETURNING id, username, name, email, department, permission, employee_no, status
   `
 
   const userId = result[0].id

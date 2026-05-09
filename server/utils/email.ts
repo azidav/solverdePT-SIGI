@@ -173,6 +173,32 @@ export async function sendVacationRejectedEmail(
   await sendEmail(to, subject, html).catch(err => console.error('[Email] Férias rejeitadas', err))
 }
 
+export async function sendVacationAutoApprovedNotificationEmail(
+  approvers: { email: string, name: string }[],
+  opts: { employeeName: string, typeName: string, startDate: string, endDate: string, daysCount: number, requestUrl: string }
+): Promise<void> {
+  const subject = `Ausência submetida (aprovação automática) — ${opts.employeeName}`
+  const html = `
+    <div style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;padding:24px;">
+      <h2 style="color:#6b7280;">Pedido de Ausência Submetido</h2>
+      <p>O colaborador <strong>${opts.employeeName}</strong> submeteu um pedido de <strong>${opts.typeName}</strong> que foi <strong>aprovado automaticamente</strong>.</p>
+      <div style="background:#f5f5f5;border-radius:8px;padding:16px;margin:16px 0;">
+        <p style="margin:4px 0;"><strong>Período:</strong> ${opts.startDate} → ${opts.endDate}</p>
+        <p style="margin:4px 0;"><strong>Dias:</strong> ${opts.daysCount}</p>
+      </div>
+      <p style="color:#6b7280;font-size:13px;">Este pedido não requer ação da sua parte — é apenas uma notificação informativa.</p>
+      <a href="${opts.requestUrl}" style="display:inline-block;background:#6b7280;color:white;padding:10px 24px;border-radius:8px;text-decoration:none;font-weight:bold;margin:12px 0;">
+        Ver Pedido
+      </a>
+    </div>
+  `
+  await Promise.all(
+    approvers.map(a =>
+      sendEmail(a.email, subject, html).catch(err => console.error('[Email] Notificação automática', a.email, err))
+    )
+  )
+}
+
 export async function sendAccountActivationEmail(
   to: string,
   name: string,

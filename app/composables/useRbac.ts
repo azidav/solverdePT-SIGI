@@ -37,7 +37,6 @@ export const useRbac = () => {
     permissionCodes.value.filter(code => code.startsWith(`${module}:`))
 
   const canVacation = computed(() => canAccessModule('VACATION'))
-  const canEquipment = computed(() => canAccessModule('EQUIPMENT'))
   const canRooms = computed(() => canAccessModule('ROOMS'))
   const canSettings = computed(() => canAccessModule('SETTINGS'))
 
@@ -56,7 +55,6 @@ export const useRbac = () => {
     getModulePermissions,
     loadPermissions,
     canVacation,
-    canEquipment,
     canRooms,
     canSettings,
     canApproveVacation,

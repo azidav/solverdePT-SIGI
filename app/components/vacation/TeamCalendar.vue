@@ -10,6 +10,7 @@ interface LevelMember {
 interface Level {
   id: number
   name: string
+  parent_id: number | null
   members: LevelMember[]
 }
 
@@ -27,11 +28,24 @@ interface Absence {
 
 const toast = useToast()
 const { user } = useAuth()
+const { can } = useRbac()
+const { formatDays } = useVacationUtils()
+
+interface UserBalance {
+  base_days: number
+  birthday_bonus: number
+  carryover_days: number
+  used_days: number
+  pending_days: number
+  employee_name: string
+}
 
 const absences = ref<Absence[]>([])
 const levels = ref<Level[]>([])
 const birthdayEnabled = ref(false)
 const loading = ref(true)
+const userBalance = ref<UserBalance | null>(null)
+const loadingBalance = ref(false)
 
 const today = new Date()
 const currentYear = ref(today.getFullYear())
@@ -39,6 +53,36 @@ const currentMonth = ref(today.getMonth() + 1)
 
 const selectedLevelIds = ref<number[]>([])
 const selectedUserId = ref<number | null>(null)
+
+// Only root-level approvers (no parent) can see another user's balance
+const isTopLevelApprover = computed(() => {
+  const myId = user.value?.id
+  if (!myId) return false
+  return levels.value.some(l => l.parent_id === null && l.members.some(m => m.id === myId))
+})
+
+const balanceTotalAllowed = computed(() => userBalance.value
+  ? Number(userBalance.value.base_days) + Number(userBalance.value.birthday_bonus) +
+    Number(userBalance.value.carryover_days)
+  : 0
+)
+const balanceAvailable = computed(() =>
+  balanceTotalAllowed.value - Number(userBalance.value?.used_days ?? 0) - Number(userBalance.value?.pending_days ?? 0)
+)
+
+async function loadUserBalance() {
+  if (!selectedUserId.value || !isTopLevelApprover.value) { userBalance.value = null; return }
+  loadingBalance.value = true
+  try {
+    userBalance.value = await useApiFetch(
+      `/api/vacation-requests/balance?user_id=${selectedUserId.value}&year=${currentYear.value}`
+    ) as UserBalance
+  } catch {
+    userBalance.value = null
+  } finally {
+    loadingBalance.value = false
+  }
+}
 
 // ── Month navigation ────────────────────────────────────────────────────────
 
@@ -56,29 +100,58 @@ const daysInMonth = computed(() => new Date(currentYear.value, currentMonth.valu
 const calendarDays = computed(() => Array.from({ length: daysInMonth.value }, (_, i) => i + 1))
 
 function prevMonth() {
+  const prevYear = currentYear.value
   if (currentMonth.value === 1) { currentMonth.value = 12; currentYear.value-- }
   else currentMonth.value--
   loadAbsences()
+  if (currentYear.value !== prevYear) loadUserBalance()
 }
 
 function nextMonth() {
+  const prevYear = currentYear.value
   if (currentMonth.value === 12) { currentMonth.value = 1; currentYear.value++ }
   else currentMonth.value++
   loadAbsences()
+  if (currentYear.value !== prevYear) loadUserBalance()
 }
 
 // ── Filters ─────────────────────────────────────────────────────────────────
 
-const levelOptions = computed(() =>
-  levels.value.map(l => ({ label: l.name, value: l.id }))
-)
+function getSubtreeIds(rootId: number): number[] {
+  const result = [rootId]
+  for (const l of levels.value) {
+    if (l.parent_id === rootId) result.push(...getSubtreeIds(l.id))
+  }
+  return result
+}
+
+// Level IDs the current user is allowed to view (null = unrestricted)
+const allowedLevelIds = computed<number[] | null>(() => {
+  if (can('VACATION:VIEW_ALL_TEAM')) return null
+  const myId = user.value?.id
+  if (!myId) return []
+  const myLevel = levels.value.find(l => l.members.some(m => m.id === myId))
+  return myLevel ? getSubtreeIds(myLevel.id) : []
+})
+
+const levelOptions = computed(() => {
+  const allowed = allowedLevelIds.value
+  return levels.value
+    .filter(l => allowed === null || allowed.includes(l.id))
+    .map(l => ({ label: l.name, value: l.id }))
+})
 
 const usersInSelectedLevel = computed<LevelMember[]>(() => {
+  const allowed = allowedLevelIds.value
   const seen = new Set<number>()
   const all: LevelMember[] = []
-  const source = selectedLevelIds.value.length > 0
-    ? levels.value.filter(l => selectedLevelIds.value.includes(l.id))
-    : levels.value
+
+  // Start from explicitly selected levels, or fall back to all allowed levels
+  let source = levels.value.filter(l => allowed === null || allowed.includes(l.id))
+  if (selectedLevelIds.value.length > 0) {
+    source = source.filter(l => selectedLevelIds.value.includes(l.id))
+  }
+
   for (const l of source) {
     for (const m of l.members) {
       if (!seen.has(m.id)) { seen.add(m.id); all.push(m) }
@@ -100,6 +173,7 @@ watch(selectedLevelIds, () => {
 
 watch(selectedUserId, () => {
   loadAbsences()
+  loadUserBalance()
 })
 
 // ── Calendar rows ─────────────────────────────────────────────────────────────
@@ -181,7 +255,7 @@ async function loadLevels() {
     const data = await useApiFetch('/api/approval-levels') as Level[]
     levels.value = data
 
-    // Pre-select the level the logged-in user belongs to
+    // Pre-select the logged-in user's own level (always within allowed set)
     const myId = user.value?.id
     if (myId) {
       const myLevel = data.find(l => l.members.some(m => m.id === myId))
@@ -231,6 +305,53 @@ onMounted(async () => {
         placeholder="Todos os utilizadores"
         class="w-52"
       />
+    </div>
+
+    <!-- Per-user balance summary (top-level approvers + single user selected) -->
+    <div v-if="selectedUserId !== null && isTopLevelApprover" class="mb-4">
+      <div v-if="loadingBalance" class="flex justify-center py-4">
+        <UIcon name="i-lucide-loader-2" class="size-4 animate-spin text-muted" />
+      </div>
+      <template v-else-if="userBalance">
+        <p class="text-xs text-muted mb-2 font-medium">
+          {{ userBalance.employee_name }} — {{ currentYear }}
+        </p>
+        <div class="grid grid-cols-2 sm:grid-cols-4 gap-3">
+          <UCard>
+            <div class="text-center">
+              <p class="text-xl font-bold text-primary">{{ formatDays(balanceTotalAllowed) }}</p>
+              <p class="text-xs text-muted">Total</p>
+            </div>
+          </UCard>
+          <UCard>
+            <div class="text-center">
+              <p class="text-xl font-bold text-green-500">{{ formatDays(balanceAvailable) }}</p>
+              <p class="text-xs text-muted">Disponíveis</p>
+            </div>
+          </UCard>
+          <UCard>
+            <div class="text-center">
+              <p class="text-xl font-bold text-yellow-500">{{ formatDays(Number(userBalance.pending_days)) }}</p>
+              <p class="text-xs text-muted">Em aprovação</p>
+            </div>
+          </UCard>
+          <UCard>
+            <div class="text-center">
+              <p class="text-xl font-bold text-muted">{{ formatDays(Number(userBalance.used_days)) }}</p>
+              <p class="text-xs text-muted">Utilizados</p>
+            </div>
+          </UCard>
+        </div>
+        <div v-if="Number(userBalance.carryover_days) > 0" class="mt-2">
+          <UBadge
+            icon="i-lucide-arrow-right"
+            :label="`+${formatDays(Number(userBalance.carryover_days))} dia${Number(userBalance.carryover_days) !== 1 ? 's' : ''} transitados`"
+            color="warning"
+            variant="subtle"
+            size="xs"
+          />
+        </div>
+      </template>
     </div>
 
     <div v-if="loading" class="text-center py-8 text-muted">

@@ -14,7 +14,6 @@ interface Request {
 
 interface Balance {
   base_days: number
-  seniority_bonus: number
   birthday_bonus: number
   carryover_days: number
   used_days: number
@@ -23,7 +22,7 @@ interface Balance {
 
 const toast = useToast()
 const { can, canApproveVacation } = useRbac()
-const { STATUS_LABELS, STATUS_COLORS, TYPE_LABELS, formatDate } = useVacationUtils()
+const { STATUS_LABELS, STATUS_COLORS, TYPE_LABELS, formatDate, formatDaysLabel } = useVacationUtils()
 
 const requests = ref<Request[]>([])
 const balance = ref<Balance | null>(null)
@@ -38,16 +37,15 @@ const cancelTargetId = ref<number | null>(null)
 const cancelling = ref(false)
 
 const totalAllowed = computed(() =>
-  (balance.value?.base_days ?? 0) +
-  (balance.value?.seniority_bonus ?? 0) +
-  (balance.value?.birthday_bonus ?? 0) +
-  (balance.value?.carryover_days ?? 0)
+  Number(balance.value?.base_days ?? 0) +
+  Number(balance.value?.birthday_bonus ?? 0) +
+  Number(balance.value?.carryover_days ?? 0)
 )
 
 const availableDays = computed(() =>
   totalAllowed.value -
-  (balance.value?.used_days ?? 0) -
-  (balance.value?.pending_days ?? 0)
+  Number(balance.value?.used_days ?? 0) -
+  Number(balance.value?.pending_days ?? 0)
 )
 
 const filteredRequests = computed(() =>
@@ -190,18 +188,11 @@ onMounted(loadData)
         </UCard>
       </div>
 
-      <!-- Seniority / birthday / carryover bonuses -->
+      <!-- Birthday / carryover bonuses -->
       <div
-        v-if="balance && (balance.seniority_bonus > 0 || balance.birthday_bonus > 0 || balance.carryover_days > 0)"
+        v-if="balance && (balance.birthday_bonus > 0 || balance.carryover_days > 0)"
         class="flex gap-2 flex-wrap"
       >
-        <UBadge
-          v-if="balance.seniority_bonus > 0"
-          icon="i-lucide-star"
-          :label="`+${balance.seniority_bonus} dia${balance.seniority_bonus > 1 ? 's' : ''} de antiguidade`"
-          color="info"
-          variant="subtle"
-        />
         <UBadge
           v-if="balance.birthday_bonus > 0"
           icon="i-lucide-cake"
@@ -286,7 +277,7 @@ onMounted(loadData)
               </div>
               <p class="text-sm text-muted mt-0.5">
                 {{ formatDate(r.start_date) }} → {{ formatDate(r.end_date) }}
-                <span class="ml-1 text-xs">({{ r.days_count }} dia{{ r.days_count !== 1 ? 's' : '' }} útil{{ r.days_count !== 1 ? 'eis' : '' }})</span>
+                <span class="ml-1 text-xs">({{ formatDaysLabel(r.days_count) }})</span>
               </p>
             </div>
             <div class="flex gap-1 shrink-0">

@@ -49,14 +49,12 @@ const loadingPermissions = ref(false)
 // Labels para os módulos
 const moduleLabels: Record<string, string> = {
   VACATION: 'Férias',
-  EQUIPMENT: 'Equipamentos',
   ROOMS: 'Salas de Reunião',
   SETTINGS: 'Definições'
 }
 
 const moduleIcons: Record<string, string> = {
   VACATION: 'i-lucide-palm-tree',
-  EQUIPMENT: 'i-lucide-monitor',
   ROOMS: 'i-lucide-door-open',
   SETTINGS: 'i-lucide-settings'
 }

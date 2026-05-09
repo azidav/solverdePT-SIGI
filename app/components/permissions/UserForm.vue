@@ -17,7 +17,7 @@ interface IUser {
   email: string
   job_title?: string
   birthday?: string | null
-  hire_date?: string | null
+  employee_no?: string | null
   role_id: number | null
   role_name?: string
   status: number
@@ -45,7 +45,7 @@ const baseSchema = {
   email: z.email('Email inválido'),
   job_title: z.string().optional(),
   birthday: z.string().optional(),
-  hire_date: z.string().optional()
+  employee_no: z.string().optional()
 }
 
 const createSchema = z.object({
@@ -69,7 +69,7 @@ const state = reactive<Partial<CreateSchema>>({
   email: '',
   job_title: '',
   birthday: '',
-  hire_date: ''
+  employee_no: ''
 })
 
 const assignedGroups = ref<IGroup[]>([])
@@ -128,7 +128,7 @@ function initUserData() {
     state.email = props.user.email || ''
     state.job_title = props.user.job_title || ''
     state.birthday = datePart(props.user.birthday)
-    state.hire_date = datePart(props.user.hire_date)
+    state.employee_no = props.user.employee_no || ''
 
     if (props.user.roles && Array.isArray(props.user.roles) && props.user.roles.length > 0) {
       assignedGroups.value = props.user.roles.map((r) => {
@@ -146,7 +146,7 @@ function initUserData() {
     state.email = ''
     state.job_title = ''
     state.birthday = ''
-    state.hire_date = ''
+    state.employee_no = ''
   }
 }
 
@@ -168,7 +168,7 @@ async function onSubmit(event?: FormSubmitEvent<any>) {
       email: event.data.email,
       job_title: event.data.job_title || null,
       birthday: event.data.birthday || null,
-      hire_date: event.data.hire_date || null
+      employee_no: event.data.employee_no || null
     }
 
     let userId = props.user?.id
@@ -309,16 +309,17 @@ onMounted(() => {
       </UFormField>
     </div>
 
-    <!-- Linha 4: Hire date -->
+    <!-- Linha 4: Employee number -->
     <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
       <UFormField
-        label="Trabalha desde"
-        name="hire_date"
+        label="Nº de Identificação"
+        name="employee_no"
       >
         <UInput
-          v-model="state.hire_date"
-          type="date"
+          v-model="state.employee_no"
           class="w-full"
+          placeholder="Ex: 1234 ou EMP001"
+          :disabled="isEditMode"
         />
       </UFormField>
     </div>

@@ -43,5 +43,19 @@ export const useVacationUtils = () => {
     return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
   }
 
-  return { STATUS_LABELS, STATUS_COLORS, TYPE_LABELS, formatDate, formatDateTime, localDateStr }
+  // Format a day count: 0.5 → "½", 1.5 → "1½", 2 → "2"
+  function formatDays(n: number): string {
+    if (n % 1 === 0) return String(n)
+    const whole = Math.floor(n)
+    return whole > 0 ? `${whole}½` : '½'
+  }
+
+  // Full label: 0.5 → "meio dia", 1 → "1 dia útil", 2 → "2 dias úteis"
+  function formatDaysLabel(n: number): string {
+    if (n === 0.5) return 'meio dia'
+    if (n === 1) return '1 dia útil'
+    return `${formatDays(n)} dias úteis`
+  }
+
+  return { STATUS_LABELS, STATUS_COLORS, TYPE_LABELS, formatDate, formatDateTime, localDateStr, formatDays, formatDaysLabel }
 }

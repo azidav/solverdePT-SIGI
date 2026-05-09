@@ -117,36 +117,20 @@ export async function assertNoBlackout(
 // ─── Accrual Engine ───────────────────────────────────────────────────────────
 
 /**
- * Calculates and upserts the leave balance for a user in a given year.
- * Base: 22 days | Seniority: +1 day/year capped at +2 | Birthday: +1 day/year
+ * Ensures a leave balance row exists for the user/year.
+ * Base days and carryover are set exclusively by Excel import.
+ * Only birthday bonus is auto-calculated here.
  */
 export async function recalculateLeaveBalance(userId: number, year: number): Promise<void> {
-  const [user] = await sql<{ hire_date: string | null; birthday: string | null }[]>`
-    SELECT hire_date, birthday FROM users WHERE id = ${userId}
+  const [user] = await sql<{ birthday: string | null }[]>`
+    SELECT birthday FROM users WHERE id = ${userId}
   `
   if (!user) return
 
-  // Load relevant settings
-  const cfgRows = await sql<{ key: string; value: string }[]>`
-    SELECT key, value FROM config_variables
-    WHERE key IN ('vacation_seniority_1y_enabled', 'vacation_seniority_2y_enabled', 'vacation_birthday_enabled')
+  const [cfg] = await sql<{ value: string }[]>`
+    SELECT value FROM config_variables WHERE key = 'vacation_birthday_enabled'
   `
-  const cfg: Record<string, string> = {}
-  cfgRows.forEach(r => { cfg[r.key] = r.value })
-
-  const s1y = cfg['vacation_seniority_1y_enabled'] !== 'false'
-  const s2y = cfg['vacation_seniority_2y_enabled'] !== 'false'
-  const birthdayEnabled = cfg['vacation_birthday_enabled'] === 'true'
-
-  let seniorityBonus = 0
-  if (user.hire_date) {
-    const hire = parseDate(user.hire_date as string)
-    const yearsOfService = Math.floor(
-      (new Date().getTime() - hire.getTime()) / (365.25 * 24 * 60 * 60 * 1000)
-    )
-    if (s1y && yearsOfService >= 1) seniorityBonus++
-    if (s2y && yearsOfService >= 2) seniorityBonus++
-  }
+  const birthdayEnabled = cfg?.value === 'true'
 
   let birthdayBonus = 0
   if (birthdayEnabled && user.birthday) {
@@ -154,28 +138,13 @@ export async function recalculateLeaveBalance(userId: number, year: number): Pro
     if (bday.getFullYear() <= year) birthdayBonus = 1
   }
 
-  // Carryover = unused days from previous year (frozen on first insert of this year's row)
-  const [prevBal] = await sql<{
-    base_days: number; seniority_bonus: number; birthday_bonus: number
-    carryover_days: number; used_days: number
-  }[]>`
-    SELECT base_days, seniority_bonus, birthday_bonus, carryover_days, used_days
-    FROM leave_balances WHERE employee_id = ${userId} AND year = ${year - 1}
-  `
-  const carryoverDays = prevBal
-    ? Math.max(0,
-        (prevBal.base_days ?? 22) + (prevBal.seniority_bonus ?? 0) +
-        (prevBal.birthday_bonus ?? 0) + (prevBal.carryover_days ?? 0) -
-        (prevBal.used_days ?? 0)
-      )
-    : 0
-
+  // seniority_bonus always 0 — carryover_days owned by Excel import
   await sql`
     INSERT INTO leave_balances (employee_id, year, base_days, seniority_bonus, birthday_bonus, carryover_days)
-    VALUES (${userId}, ${year}, 22, ${seniorityBonus}, ${birthdayBonus}, ${carryoverDays})
+    VALUES (${userId}, ${year}, 22, 0, ${birthdayBonus}, 0)
     ON CONFLICT (employee_id, year)
     DO UPDATE SET
-      seniority_bonus = ${seniorityBonus},
+      seniority_bonus = 0,
       birthday_bonus  = ${birthdayBonus},
       updated_at      = NOW()
   `
@@ -223,8 +192,9 @@ function buildLevelTree(levels: LevelRow[]): LevelRow[] {
 /**
  * Returns true when approval steps were created (request stays pending).
  * Returns false when the employee is at the top of the hierarchy — caller must auto-approve.
+ * When requiresChain is false, creates a single open step notifiable to all level members.
  */
-export async function createWorkflowSteps(requestId: number, employeeId: number): Promise<boolean> {
+export async function createWorkflowSteps(requestId: number, employeeId: number, requiresChain = true): Promise<boolean> {
   const levels = await sql<LevelRow[]>`
     SELECT id, step_order, name, parent_id FROM approval_levels ORDER BY step_order ASC
   `
@@ -244,6 +214,9 @@ export async function createWorkflowSteps(requestId: number, employeeId: number)
     await sql`INSERT INTO approval_workflow_steps ${sql(rows)}`
     return true
   }
+
+  // Free type: no approval needed, caller will auto-approve and notify
+  if (!requiresChain) return false
 
   const levelMap = new Map(levels.map(l => [l.id, l]))
 
@@ -302,13 +275,14 @@ export async function advanceWorkflow(
   const [request] = await sql<{
     id: number
     employee_id: number
+    type: string
     status: string
     current_approval_step: number
     days_count: number
     start_date: string | Date
     end_date: string | Date
   }[]>`
-    SELECT id, employee_id, status, current_approval_step, days_count, start_date, end_date
+    SELECT id, employee_id, type, status, current_approval_step, days_count, start_date, end_date
     FROM vacation_requests WHERE id = ${requestId}
   `
 
@@ -319,11 +293,18 @@ export async function advanceWorkflow(
 
   const currentStep = request.current_approval_step
   const oldStatus = request.status
+  const daysCount = Number(request.days_count)
   const rawStart = request.start_date instanceof Date ? request.start_date.toISOString() : String(request.start_date)
   const year = new Date(rawStart).getFullYear()
   const requestUrl = buildRequestUrl(event, requestId)
   const startDate = fmtDate(request.start_date)
   const endDate = fmtDate(request.end_date)
+
+  // Check if this type uses balance (for deduction logic)
+  const [vacType] = await sql<{ uses_balance: boolean }[]>`
+    SELECT uses_balance FROM vacation_types WHERE code = ${request.type} LIMIT 1
+  `
+  const usesBalance = vacType?.uses_balance !== false
 
   // Fetch employee info for emails
   const [employee] = await sql<{ name: string, email: string }[]>`
@@ -339,11 +320,13 @@ export async function advanceWorkflow(
     await sql`
       UPDATE vacation_requests SET status = 'rejected', updated_at = NOW() WHERE id = ${requestId}
     `
-    await sql`
-      UPDATE leave_balances
-      SET pending_days = GREATEST(0, pending_days - ${request.days_count})
-      WHERE employee_id = ${request.employee_id} AND year = ${year}
-    `
+    if (usesBalance) {
+      await sql`
+        UPDATE leave_balances
+        SET pending_days = GREATEST(0, pending_days - ${daysCount})
+        WHERE employee_id = ${request.employee_id} AND year = ${year}
+      `
+    }
     await logVacationHistory(requestId, actor, currentStep, oldStatus, 'rejected', comment)
 
     // Notify employee of rejection
@@ -386,7 +369,7 @@ export async function advanceWorkflow(
         sendVacationPendingApprovalEmail(approvers, {
           employeeName: employee?.name ?? 'Colaborador',
           startDate, endDate,
-          daysCount: request.days_count as number,
+          daysCount: daysCount,
           requestUrl,
           levelName: nextStep.role_name as string
         }).catch(console.error)
@@ -396,19 +379,21 @@ export async function advanceWorkflow(
     await sql`
       UPDATE vacation_requests SET status = 'approved', updated_at = NOW() WHERE id = ${requestId}
     `
-    await sql`
-      UPDATE leave_balances
-      SET
-        pending_days = GREATEST(0, pending_days - ${request.days_count}),
-        used_days    = used_days + ${request.days_count}
-      WHERE employee_id = ${request.employee_id} AND year = ${year}
-    `
+    if (usesBalance) {
+      await sql`
+        UPDATE leave_balances
+        SET
+          pending_days = GREATEST(0, pending_days - ${daysCount}),
+          used_days    = used_days + ${daysCount}
+        WHERE employee_id = ${request.employee_id} AND year = ${year}
+      `
+    }
     await logVacationHistory(requestId, actor, currentStep, oldStatus, 'approved', comment)
 
     // Notify employee of full approval
     if (employee?.email) {
       sendVacationApprovedEmail(employee.email, employee.name, {
-        startDate, endDate, daysCount: request.days_count as number, requestUrl
+        startDate, endDate, daysCount: daysCount, requestUrl
       }).catch(console.error)
     }
   }

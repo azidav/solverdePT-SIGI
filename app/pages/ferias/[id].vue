@@ -39,7 +39,7 @@ interface RequestDetail {
 const route = useRoute()
 const toast = useToast()
 const { can } = useRbac()
-const { STATUS_LABELS, STATUS_COLORS, TYPE_LABELS, formatDate, formatDateTime } = useVacationUtils()
+const { STATUS_LABELS, STATUS_COLORS, TYPE_LABELS, formatDate, formatDateTime, formatDays } = useVacationUtils()
 
 const STEP_STATUS_LABELS: Record<string, string> = {
   pending: 'Aguarda',
@@ -219,7 +219,7 @@ onMounted(loadRequest)
                       Dias úteis
                     </p>
                     <p class="font-semibold">
-                      {{ request.days_count }}
+                      {{ formatDays(request.days_count) }}
                     </p>
                   </div>
                   <div v-if="request.reason" class="col-span-2">

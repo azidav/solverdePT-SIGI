@@ -28,6 +28,7 @@
     "pinia": "^3.0.4",
     "postgres": "^3.4.7",
     "tailwind": "^4.0.0",
+    "xlsx": "^0.18.5",
     "zod": "^4.1.12"
   },
   "devDependencies": {
