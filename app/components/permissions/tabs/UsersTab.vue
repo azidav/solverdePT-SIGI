@@ -174,21 +174,13 @@ onMounted(loadUsers)
 
 <template>
   <div class="space-y-4 pt-4">
-    <div class="flex flex-wrap items-center justify-between gap-3">
-      <UInput
-        :model-value="(usersTable?.tableApi?.getColumn('username')?.getFilterValue() as string)"
-        class="max-w-sm"
-        icon="i-lucide-search"
-        placeholder="Pesquisar por username..."
-        @update:model-value="usersTable?.tableApi?.getColumn('username')?.setFilterValue($event)"
-      />
-      <UButton
-        label="Adicionar Utilizador"
-        icon="i-lucide-plus"
-        color="primary"
-        @click="navigateTo('/permissions/users/new')"
-      />
-    </div>
+    <UInput
+      :model-value="(usersTable?.tableApi?.getColumn('username')?.getFilterValue() as string)"
+      class="max-w-sm"
+      icon="i-lucide-search"
+      placeholder="Pesquisar por username..."
+      @update:model-value="usersTable?.tableApi?.getColumn('username')?.setFilterValue($event)"
+    />
 
     <UTable
       ref="usersTable"

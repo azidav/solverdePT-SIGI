@@ -340,7 +340,7 @@ onMounted(async () => {
   <!-- AUTHENTICATED: full dashboard with sidebar -->
   <UDashboardPanel v-if="isAuthenticated" id="meeting-rooms">
     <template #header>
-      <UDashboardNavbar title="Salas de Reunião">
+      <UDashboardNavbar title="Salas de Reunião" icon="i-lucide-door-open">
         <template #leading>
           <UDashboardSidebarCollapse />
         </template>

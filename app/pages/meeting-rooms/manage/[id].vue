@@ -71,22 +71,7 @@ async function onSubmit(event: FormSubmitEvent<Schema>) {
 </script>
 
 <template>
-  <UDashboardPanel id="rooms-edit">
-    <template #header>
-      <UDashboardNavbar :title="state.name || 'Editar Sala'">
-        <template #leading>
-          <UButton
-            icon="i-lucide-arrow-left"
-            color="neutral"
-            variant="ghost"
-            @click="navigateTo('/meeting-rooms/manage')"
-          />
-        </template>
-      </UDashboardNavbar>
-    </template>
-
-    <template #body>
-      <div class="p-6">
+  <div class="p-6">
         <div v-if="loading" class="flex justify-center py-16">
           <UIcon name="i-lucide-loader-2" class="size-6 animate-spin text-primary" />
         </div>
@@ -128,7 +113,5 @@ async function onSubmit(event: FormSubmitEvent<Schema>) {
             </div>
           </UForm>
         </UCard>
-      </div>
-    </template>
-  </UDashboardPanel>
+  </div>
 </template>

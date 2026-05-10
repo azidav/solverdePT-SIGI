@@ -1,5 +1,34 @@
 -- Pending migrations go here
 
+-- ============================================================
+-- Approval levels (tree-based hierarchy)
+-- ============================================================
+CREATE TABLE IF NOT EXISTS approval_levels (
+  id          SERIAL PRIMARY KEY,
+  name        VARCHAR(150) NOT NULL,
+  description TEXT,
+  step_order  INT NOT NULL DEFAULT 1,
+  parent_id   INT REFERENCES approval_levels(id) ON DELETE SET NULL,
+  created_at  TIMESTAMPTZ DEFAULT NOW(),
+  updated_at  TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_approval_levels_step_order ON approval_levels(step_order);
+
+CREATE TABLE IF NOT EXISTS approval_level_members (
+  id       SERIAL PRIMARY KEY,
+  level_id INT NOT NULL REFERENCES approval_levels(id) ON DELETE CASCADE,
+  user_id  INT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  UNIQUE (level_id, user_id)
+);
+
+CREATE INDEX IF NOT EXISTS idx_approval_level_members_level_id ON approval_level_members(level_id);
+CREATE INDEX IF NOT EXISTS idx_approval_level_members_user_id  ON approval_level_members(user_id);
+
+-- Link approval_workflow_steps to levels
+ALTER TABLE approval_workflow_steps
+  ADD COLUMN IF NOT EXISTS level_id INT REFERENCES approval_levels(id) ON DELETE SET NULL;
+
 -- Meeting Rooms module
 CREATE TABLE IF NOT EXISTS meeting_rooms (
   id SERIAL PRIMARY KEY,
@@ -217,6 +246,11 @@ CREATE TABLE IF NOT EXISTS positions (
 CREATE INDEX IF NOT EXISTS idx_positions_parent_id ON positions(parent_id);
 
 ALTER TABLE users ADD COLUMN IF NOT EXISTS position_id INT REFERENCES positions(id) ON DELETE SET NULL;
+
+-- Vacation reports export permission
+INSERT INTO permissions (code, description, module, action)
+VALUES ('VACATION:EXPORT_REPORTS', 'Exportar Relatórios de Férias', 'VACATION', 'EXPORT_REPORTS')
+ON CONFLICT (code) DO NOTHING;
 
 -- Ver Níveis de Aprovação permission
 INSERT INTO permissions (code, description, module, action)

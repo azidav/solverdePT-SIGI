@@ -23,6 +23,8 @@
     "bcrypt": "^6.0.0",
     "date-fns": "^4.1.0",
     "jsonwebtoken": "^9.0.2",
+    "jspdf": "^4.2.1",
+    "jspdf-autotable": "^5.0.7",
     "nodemailer": "^8.0.6",
     "nuxt": "^4.2.0",
     "pinia": "^3.0.4",

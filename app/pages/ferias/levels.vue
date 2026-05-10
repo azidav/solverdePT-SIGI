@@ -3,6 +3,14 @@ definePageMeta({ title: 'Níveis de Aprovação' })
 
 const { can, loading: rbacLoading } = useRbac()
 
+const triggerCreateLevel = useState('ferias-create-level', () => false)
+watch(triggerCreateLevel, (val) => {
+  if (val) {
+    openCreate()
+    triggerCreateLevel.value = false
+  }
+})
+
 watchEffect(() => {
   if (!rbacLoading.value && !can('VACATION:VIEW_LEVELS')) {
     navigateTo('/ferias')
@@ -343,26 +351,8 @@ onMounted(() => {
 </script>
 
 <template>
-  <UDashboardPanel>
-    <template #header>
-      <UDashboardNavbar title="Níveis de Aprovação">
-        <template #leading>
-          <UDashboardSidebarCollapse />
-          <UButton icon="i-lucide-arrow-left" variant="ghost" to="/ferias" />
-        </template>
-        <template #right>
-          <UButton
-            icon="i-lucide-plus"
-            label="Novo Nível"
-            color="primary"
-            @click="openCreate"
-          />
-        </template>
-      </UDashboardNavbar>
-    </template>
-
-    <div class="p-4 space-y-4">
-      <UTabs v-model="activeTab" :items="tabs">
+  <div class="p-4 space-y-4">
+    <UTabs v-model="activeTab" :items="tabs">
 
         <!-- ── Níveis tab ── -->
         <template #levels>
@@ -563,9 +553,8 @@ onMounted(() => {
           </div>
         </template>
 
-      </UTabs>
-    </div>
-  </UDashboardPanel>
+    </UTabs>
+  </div>
 
   <!-- Create / Edit modal -->
   <UModal

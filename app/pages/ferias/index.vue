@@ -102,31 +102,7 @@ onMounted(loadData)
 </script>
 
 <template>
-  <UDashboardPanel>
-    <template #header>
-      <UDashboardNavbar title="As Minhas Férias">
-        <template #leading>
-          <UDashboardSidebarCollapse />
-        </template>
-        <template #right>
-          <UButton
-            v-if="can('VACATION:CREATE')"
-            icon="i-lucide-plus"
-            label="Novo Pedido"
-            to="/ferias/nova"
-          />
-          <UButton
-            v-if="canApproveVacation"
-            icon="i-lucide-shield-check"
-            label="Administração"
-            variant="ghost"
-            to="/ferias/admin"
-          />
-        </template>
-      </UDashboardNavbar>
-    </template>
-
-    <div class="p-4 space-y-4">
+  <div class="p-4 space-y-4">
       <!-- Year selector -->
       <div class="flex items-center gap-1">
         <UButton
@@ -299,8 +275,7 @@ onMounted(loadData)
           </div>
         </UCard>
       </div>
-    </div>
-  </UDashboardPanel>
+  </div>
 
   <!-- Cancel confirmation modal -->
   <UModal

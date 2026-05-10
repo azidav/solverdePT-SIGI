@@ -164,21 +164,7 @@ onMounted(loadRequest)
 </script>
 
 <template>
-  <UDashboardPanel>
-    <template #header>
-      <UDashboardNavbar title="Detalhe do Pedido">
-        <template #leading>
-          <UDashboardSidebarCollapse />
-          <UButton
-            icon="i-lucide-arrow-left"
-            variant="ghost"
-            to="/ferias"
-          />
-        </template>
-      </UDashboardNavbar>
-    </template>
-
-    <div class="p-4 overflow-y-auto">
+  <div class="p-4 overflow-y-auto">
       <div v-if="loading" class="flex justify-center py-12">
         <UIcon name="i-lucide-loader-2" class="size-6 animate-spin text-muted" />
       </div>
@@ -405,8 +391,7 @@ onMounted(loadRequest)
           </div>
         </div>
       </template>
-    </div>
-  </UDashboardPanel>
+  </div>
 
   <!-- Cancel confirmation modal -->
   <UModal

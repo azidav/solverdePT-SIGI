@@ -49,22 +49,7 @@ async function onSubmit(event: FormSubmitEvent<Schema>) {
 </script>
 
 <template>
-  <UDashboardPanel id="rooms-new">
-    <template #header>
-      <UDashboardNavbar title="Nova Sala de Reunião">
-        <template #leading>
-          <UButton
-            icon="i-lucide-arrow-left"
-            color="neutral"
-            variant="ghost"
-            @click="navigateTo('/meeting-rooms/manage')"
-          />
-        </template>
-      </UDashboardNavbar>
-    </template>
-
-    <template #body>
-      <div class="p-6">
+  <div class="p-6">
         <UCard class="max-w-2xl">
           <template #header>
             <div class="flex items-center gap-2">
@@ -102,7 +87,5 @@ async function onSubmit(event: FormSubmitEvent<Schema>) {
             </div>
           </UForm>
         </UCard>
-      </div>
-    </template>
-  </UDashboardPanel>
+  </div>
 </template>

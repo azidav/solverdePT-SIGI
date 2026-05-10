@@ -94,7 +94,13 @@ onMounted(loadConfig)
   <div v-if="loading" class="flex items-center justify-center py-16">
     <UIcon name="i-lucide-loader-2" class="size-6 animate-spin text-primary" />
   </div>
-  <UAccordion v-else :items="accordionItems" :default-value="accordionItems[0]?.slot">
+
+  <UAccordion
+    v-else
+    :items="accordionItems"
+    :default-value="accordionItems[0]?.slot"
+    class="p-4"
+  >
     <template v-for="(vars, section) in standardSections" :key="section" #[section]>
       <div class="space-y-5 px-1 pb-4 pt-2">
         <div v-for="v in vars" :key="v.key">
@@ -131,6 +137,7 @@ onMounted(loadConfig)
         </div>
       </div>
     </template>
+
     <template #vacation_types>
       <div class="px-1 pb-4 pt-2">
         <SettingsVacationTypeManager />

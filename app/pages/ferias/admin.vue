@@ -127,21 +127,10 @@ onMounted(loadRequests)
 </script>
 
 <template>
-  <UDashboardPanel>
-    <template #header>
-      <UDashboardNavbar title="Administração — Férias">
-        <template #leading>
-          <UDashboardSidebarCollapse />
-          <UButton
-            icon="i-lucide-arrow-left"
-            variant="ghost"
-            to="/ferias"
-          />
-        </template>
-      </UDashboardNavbar>
-    </template>
+  <div class="p-4 space-y-4 overflow-y-auto">
+      <!-- Reports -->
+      <VacationReportsPanel v-if="can('VACATION:VIEW_TEAM')" />
 
-    <div class="p-4 space-y-4 overflow-y-auto">
       <!-- Balance upload -->
       <UCard v-if="can('VACATION:IMPORT_BALANCES')">
         <template #header>
@@ -297,6 +286,5 @@ onMounted(loadRequests)
 
       <!-- Team Calendar -->
       <VacationTeamCalendar v-if="canApproveVacation" />
-    </div>
-  </UDashboardPanel>
+  </div>
 </template>
