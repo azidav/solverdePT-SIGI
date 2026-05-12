@@ -17,6 +17,8 @@ interface Reservation {
   room_name: string
 }
 
+definePageMeta({ title: 'Início' })
+
 const auth = useAuth()
 const userName = computed(() => auth.user.value?.name || auth.user.value?.username || '')
 const { STATUS_LABELS, STATUS_COLORS, TYPE_LABELS, formatDate } = useVacationUtils()

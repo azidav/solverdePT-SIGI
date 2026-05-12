@@ -1,5 +1,5 @@
 <script setup lang="ts">
-definePageMeta({ title: 'Variáveis de Configuração' })
+definePageMeta({ title: 'Configurações' })
 
 interface ConfigVar {
   id: number

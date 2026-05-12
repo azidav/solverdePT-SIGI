@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import type { TableColumn } from '@nuxt/ui'
 
-definePageMeta({ title: 'Audit Logs' })
+definePageMeta({ title: 'Registos de Auditoria' })
 
 const UBadge = resolveComponent('UBadge')
 

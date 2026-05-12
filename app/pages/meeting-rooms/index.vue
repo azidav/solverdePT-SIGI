@@ -2,7 +2,7 @@
 import * as z from 'zod'
 import type { FormSubmitEvent } from '@nuxt/ui'
 
-definePageMeta({ middleware: ['rooms-layout'] })
+definePageMeta({ middleware: ['rooms-layout'], title: 'Salas de Reunião' })
 
 interface Room {
   id: number

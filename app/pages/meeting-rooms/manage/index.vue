@@ -1,5 +1,5 @@
 <script setup lang="ts">
-definePageMeta({ layout: 'default' })
+definePageMeta({ layout: 'default', title: 'Gerir Salas de Reunião' })
 
 interface Room {
   id: number

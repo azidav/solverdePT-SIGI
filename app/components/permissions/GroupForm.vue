@@ -59,6 +59,27 @@ const moduleIcons: Record<string, string> = {
   SETTINGS: 'i-lucide-settings'
 }
 
+const permissionInfoMap: Record<string, string> = {
+  'VACATION:VIEW_OWN':       'Pode ver os seus próprios pedidos de férias e o seu saldo.',
+  'VACATION:VIEW_TEAM':      'Pode ver os pedidos de férias de todos os colaboradores na página de administração.',
+  'VACATION:VIEW_ALL_TEAM':  'Pode ver todos os níveis no calendário da equipa, sem restrições de hierarquia.',
+  'VACATION:VIEW_LEVELS':    'Pode aceder à página de gestão dos níveis de aprovação.',
+  'VACATION:CREATE':         'Pode submeter novos pedidos de férias e aceder ao menu "Os Meus Pedidos".',
+  'VACATION:APPROVE':        'Pode ver o menu de administração de férias e aprovar/rejeitar pedidos.',
+  'VACATION:CONFIG_PERIODS': 'Pode criar e eliminar períodos restritos que bloqueiam pedidos de férias.',
+  'VACATION:IMPORT_BALANCES':'Pode importar saldos de férias via ficheiro Excel.',
+  'VACATION:EXPORT_REPORTS': 'Pode exportar relatórios de férias em Excel e PDF.',
+  'ROOMS:VIEW':              'Pode ver a lista de salas de reunião disponíveis.',
+  'ROOMS:RESERVE':           'Pode fazer reservas de salas de reunião.',
+  'ROOMS:CANCEL_OWN':        'Pode cancelar as suas próprias reservas de sala.',
+  'ROOMS:CANCEL_ANY':        'Pode cancelar qualquer reserva de sala, incluindo de outros utilizadores.',
+  'ROOMS:MANAGE':            'Pode criar, editar e eliminar salas de reunião.',
+  'SETTINGS:VIEW':           'Pode ver as definições do sistema (ex: configurações de email).',
+  'SETTINGS:CHANGE':         'Pode alterar as definições do sistema.',
+  'SETTINGS:MANAGE_USERS':   'Pode criar, editar e desativar utilizadores.',
+  'SETTINGS:MANAGE_ROLES':   'Pode gerir grupos e as suas permissões.',
+}
+
 // Agrupar permissões por módulo
 const groupedPermissions = computed(() => {
   const grouped: Record<string, IPermission[]> = {}
@@ -419,22 +440,28 @@ onMounted(() => {
             </UBadge>
           </div>
 
-          <div class="divide-y divide-default">
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-2 p-3">
             <div
               v-for="permission in perms"
               :key="permission.id"
-              class="flex items-center gap-3 px-4 py-2.5 hover:bg-elevated/50 transition-colors"
+              class="flex items-start gap-3 rounded-lg border p-3 cursor-pointer transition-colors"
+              :class="selectedPermissions.includes(permission.id)
+                ? 'border-primary/40 bg-primary/5'
+                : 'border-default hover:bg-elevated/50'"
+              @click="togglePermission(permission.id, !selectedPermissions.includes(permission.id))"
             >
               <UCheckbox
                 :model-value="selectedPermissions.includes(permission.id)"
+                class="mt-0.5 shrink-0"
+                @click.stop
                 @update:model-value="togglePermission(permission.id, $event as boolean)"
               />
               <div class="flex-1 min-w-0">
-                <p class="text-sm">{{ permission.description }}</p>
+                <p class="text-sm font-medium leading-snug">{{ permission.description }}</p>
+                <p v-if="permissionInfoMap[permission.code]" class="text-xs text-muted mt-1 leading-relaxed">
+                  {{ permissionInfoMap[permission.code] }}
+                </p>
               </div>
-              <code class="text-xs text-muted bg-muted px-1.5 py-0.5 rounded">
-                {{ permission.action }}
-              </code>
             </div>
           </div>
         </div>

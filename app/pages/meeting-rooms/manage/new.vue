@@ -2,7 +2,7 @@
 import * as z from 'zod'
 import type { FormSubmitEvent } from '@nuxt/ui'
 
-definePageMeta({ layout: 'default' })
+definePageMeta({ layout: 'default', title: 'Nova Sala de Reunião' })
 
 const toast = useToast()
 const saving = ref(false)

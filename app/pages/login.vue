@@ -8,7 +8,7 @@ const auth = useAuth()
 const router = useRouter()
 const toast = useAppToast()
 
-definePageMeta({ layout: 'auth' })
+definePageMeta({ layout: 'auth', title: 'Login' })
 
 const fields: AuthFormField[] = [{
   name: 'username',

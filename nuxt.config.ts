@@ -26,6 +26,13 @@ export default defineNuxtConfig({
     }
   },
 
+  app: {
+    head: {
+      titleTemplate: '%s | SolverdePT',
+      htmlAttrs: { lang: 'pt' }
+    }
+  },
+
   compatibilityDate: '2024-07-11',
 
   eslint: {
