@@ -6,7 +6,7 @@ export default defineEventHandler(async (event) => {
   const currentUser = await getUserFromEvent(event)
   if (!currentUser) throw createError({ statusCode: 401, message: 'Unauthorized' })
 
-  const canView = await hasUserPermission(event, ['VACATION:VIEW_TEAM'])
+  const canView = await hasUserPermission(event, ['VACATION:EXPORT_REPORTS'])
   if (!canView) throw createError({ statusCode: 403, message: 'Sem permissão para exportar relatórios' })
 
   const query = getQuery(event)

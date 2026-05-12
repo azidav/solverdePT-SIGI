@@ -16,24 +16,26 @@ const links = computed(() => {
   })
 
   if (canVacation.value) {
-    const hasExpandedMenu = canApproveVacation.value || can('VACATION:VIEW_LEVELS')
+    const hasExpandedMenu = canApproveVacation.value || can('VACATION:VIEW_LEVELS') || can('VACATION:CREATE')
 
     if (hasExpandedMenu) {
-      const feriaChildren: NavigationMenuItem[] = [
-        {
+      const feriaChildren: NavigationMenuItem[] = []
+
+      if (can('VACATION:CREATE')) {
+        feriaChildren.push({
           label: 'Novo Pedido',
           icon: 'i-lucide-plus-circle',
           to: '/ferias/nova',
           onSelect: () => { open.value = false }
-        },
-        {
+        })
+        feriaChildren.push({
           label: 'Os Meus Pedidos',
           icon: 'i-lucide-calendar-days',
           to: '/ferias',
           exact: true,
           onSelect: () => { open.value = false }
-        }
-      ]
+        })
+      }
 
       if (canApproveVacation.value) {
         feriaChildren.push({
@@ -121,7 +123,7 @@ const links = computed(() => {
 
     if (canManageRoles.value) {
       settingsChildren.push({
-        label: 'Roles & Permissões',
+        label: 'Grupos & Utilizadores',
         to: '/permissions',
         onSelect: () => { open.value = false }
       })

@@ -43,7 +43,7 @@ if (import.meta.client && (route.path === '/permissions' || route.path === '/per
   <!-- Tab pages: full dashboard panel with route-synced tabs -->
   <UDashboardPanel v-else id="permissions">
     <template #header>
-      <UDashboardNavbar title="Roles & Permissões" icon="i-lucide-shield">
+      <UDashboardNavbar title="Grupos & Utilizadores" icon="i-lucide-shield">
         <template #leading>
           <UDashboardSidebarCollapse />
         </template>

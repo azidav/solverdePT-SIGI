@@ -4,23 +4,19 @@ export async function useApiFetch(url: string, options?: any) {
   try {
     return await $fetch(url, options)
   } catch (e: any) {
+    const statusCode = e?.status ?? e?.statusCode ?? e?.response?.status
     const route = useRoute()
+    const authPages = ['/login', '/register', '/forgot-password', '/reset-password']
 
-    if (
-      e?.status === 401 &&
-      route.path !== "/login" &&
-      route.path !== "/register" &&
-      route.path !== "/forgot-password"
-    ) {
-      // Show toast for session expired
-      const toast = useToast();
+    if (statusCode === 401 && !authPages.includes(route.path)) {
+      const toast = useToast()
       toast.add({
-        title: "Session expired",
-        description: "Your session has expired. Please log in again.",
-        color: "error",
-        icon: "i-lucide-log-out",
-      });
-      useAuth().logout();
+        title: 'Sessão expirada',
+        description: 'A sua sessão expirou. Por favor, faça login novamente.',
+        color: 'error',
+        icon: 'i-lucide-log-out',
+      })
+      useAuth().logout()
     }
     throw e
   }

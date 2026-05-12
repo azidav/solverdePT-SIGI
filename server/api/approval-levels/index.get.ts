@@ -12,6 +12,7 @@ export default defineEventHandler(async (event) => {
       al.description,
       al.step_order,
       al.parent_id,
+      al.is_rh,
       al.created_at,
       COALESCE(
         json_agg(

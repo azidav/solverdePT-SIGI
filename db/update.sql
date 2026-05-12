@@ -247,6 +247,12 @@ CREATE INDEX IF NOT EXISTS idx_positions_parent_id ON positions(parent_id);
 
 ALTER TABLE users ADD COLUMN IF NOT EXISTS position_id INT REFERENCES positions(id) ON DELETE SET NULL;
 
+-- ============================================================
+-- RH group + external processing
+-- ============================================================
+ALTER TABLE approval_levels ADD COLUMN IF NOT EXISTS is_rh BOOLEAN NOT NULL DEFAULT FALSE;
+ALTER TABLE vacation_requests ADD COLUMN IF NOT EXISTS processed_externally BOOLEAN NOT NULL DEFAULT FALSE;
+
 -- Vacation reports export permission
 INSERT INTO permissions (code, description, module, action)
 VALUES ('VACATION:EXPORT_REPORTS', 'Exportar Relatórios de Férias', 'VACATION', 'EXPORT_REPORTS')

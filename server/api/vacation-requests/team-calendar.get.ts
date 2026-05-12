@@ -34,9 +34,18 @@ export default defineEventHandler(async (event) => {
     const [membership] = await sql<{ level_id: number }[]>`
       SELECT level_id FROM approval_level_members WHERE user_id = ${currentUser.id} LIMIT 1
     `
-    allowedLevelIds = membership
-      ? getSubtreeIds(allLevels, membership.level_id)
-      : []
+
+    if (membership) {
+      // Only include levels BELOW the user's own level (children + their descendants)
+      const childIds = allLevels
+        .filter(l => l.parent_id === membership.level_id)
+        .map(l => l.id)
+      const subtree: number[] = []
+      for (const childId of childIds) subtree.push(...getSubtreeIds(allLevels, childId))
+      allowedLevelIds = subtree
+    } else {
+      allowedLevelIds = []
+    }
   }
 
   const query = getQuery(event)
@@ -64,9 +73,11 @@ export default defineEventHandler(async (event) => {
     dateFilter = sql`AND vr.start_date <= ${lastDay} AND vr.end_date >= ${firstDay}`
   }
 
-  const levelFilter = effectiveLevelIds.length > 0
-    ? sql`AND vr.employee_id IN (SELECT user_id FROM approval_level_members WHERE level_id = ANY(${effectiveLevelIds}))`
-    : sql``
+  const levelFilter = allowedLevelIds === null
+    ? sql``
+    : effectiveLevelIds.length > 0
+      ? sql`AND (vr.employee_id = ${currentUser.id} OR vr.employee_id IN (SELECT user_id FROM approval_level_members WHERE level_id = ANY(${effectiveLevelIds})))`
+      : sql`AND vr.employee_id = ${currentUser.id}`
 
   const userFilter = userId ? sql`AND vr.employee_id = ${userId}` : sql``
 
@@ -75,6 +86,7 @@ export default defineEventHandler(async (event) => {
       vr.id,
       vr.employee_id,
       vr.type,
+      vr.status,
       vr.start_date,
       vr.end_date,
       vr.days_count,
@@ -83,7 +95,7 @@ export default defineEventHandler(async (event) => {
       u.department
     FROM vacation_requests vr
     INNER JOIN users u ON vr.employee_id = u.id
-    WHERE vr.status = 'approved'
+    WHERE vr.status IN ('approved', 'pending')
       ${levelFilter}
       ${userFilter}
       ${dateFilter}

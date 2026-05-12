@@ -5,7 +5,7 @@ import jwt from 'jsonwebtoken'
 import { createAuditLog } from '~~/server/utils/audit'
 
 const JWT_SECRET = process.env.JWT_SECRET || 'sv-secret-AJDOS165fs'
-const JWT_EXPIRES_IN = process.env.JWT_EXPIRES_IN || 60 * 60 // seconds
+const JWT_EXPIRES_IN = process.env.JWT_EXPIRES_IN || 8 * 60 * 60 // 8 hours
 
 export default defineEventHandler(async (event: H3Event) => {
   try {

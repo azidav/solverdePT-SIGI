@@ -25,7 +25,7 @@ export default defineEventHandler(async (event) => {
   const canViewTeam = await hasUserPermission(event, ['VACATION:VIEW_TEAM'])
 
   if (!isOwner && !canViewTeam) {
-    // Also allow level members of this request's workflow to view it
+    // Allow level members of this request's workflow to view it
     const [levelAccess] = await sql`
       SELECT 1
       FROM approval_workflow_steps aws
@@ -33,7 +33,14 @@ export default defineEventHandler(async (event) => {
       WHERE aws.request_id = ${id} AND alm.user_id = ${currentUser.id}
       LIMIT 1
     `
-    if (!levelAccess) throw createError({ statusCode: 403, message: 'Sem permissão para ver este pedido' })
+    // Also allow RH group members (they need to mark requests as processed)
+    const [rhAccess] = await sql`
+      SELECT 1 FROM approval_level_members alm
+      INNER JOIN approval_levels al ON al.id = alm.level_id
+      WHERE alm.user_id = ${currentUser.id} AND al.is_rh = true
+      LIMIT 1
+    `
+    if (!levelAccess && !rhAccess) throw createError({ statusCode: 403, message: 'Sem permissão para ver este pedido' })
   }
 
   const history = await sql`
@@ -65,5 +72,24 @@ export default defineEventHandler(async (event) => {
     }
   }
 
-  return { ...request, history, steps, can_act }
+  // Determine if current user can undo the approval
+  // Allowed when: status is approved, not yet processed externally,
+  // and the user is a member of the level that approved the (last) step
+  let can_undo = false
+  if ((request as any).status === 'approved' && !(request as any).processed_externally) {
+    const [approvedStep] = await sql`
+      SELECT level_id FROM approval_workflow_steps
+      WHERE request_id = ${id} AND status = 'approved'
+      ORDER BY step_order DESC LIMIT 1
+    `
+    if (approvedStep?.level_id) {
+      const [membership] = await sql`
+        SELECT 1 FROM approval_level_members
+        WHERE level_id = ${approvedStep.level_id} AND user_id = ${currentUser.id}
+      `
+      can_undo = !!membership
+    }
+  }
+
+  return { ...request, history, steps, can_act, can_undo }
 })

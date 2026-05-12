@@ -15,6 +15,7 @@ const { can } = useRbac()
 
 const blackouts = ref<Blackout[]>([])
 const loading = ref(true)
+const open = ref(false)
 const showForm = ref(false)
 const deleting = ref<number | null>(null)
 
@@ -74,12 +75,20 @@ onMounted(loadBlackouts)
 </script>
 
 <template>
-  <UCard>
+  <UCard :ui="{ body: 'p-0 sm:p-0' }">
     <template #header>
-      <div class="flex items-center justify-between">
-        <h3 class="font-semibold">Períodos Restritos</h3>
+      <div class="flex items-center justify-between gap-2">
+        <button class="flex items-center gap-2 flex-1 text-left" @click="open = !open">
+          <UIcon name="i-lucide-calendar-x" class="size-4 text-primary" />
+          <h3 class="font-semibold">Períodos Restritos</h3>
+          <UIcon
+            name="i-lucide-chevron-down"
+            class="size-4 text-muted transition-transform"
+            :class="open ? 'rotate-180' : ''"
+          />
+        </button>
         <UButton
-          v-if="can('VACATION:CONFIG_PERIODS')"
+          v-if="open && can('VACATION:CONFIG_PERIODS')"
           icon="i-lucide-plus"
           label="Novo Período"
           size="sm"
@@ -88,7 +97,8 @@ onMounted(loadBlackouts)
       </div>
     </template>
 
-    <div v-if="showForm" class="mb-4 p-4 border border-default rounded-lg space-y-3">
+    <div v-if="open" class="p-4 sm:p-6 space-y-4">
+    <div v-if="showForm" class="p-4 border border-default rounded-lg space-y-3">
       <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
         <UFormField label="Título" required>
           <UInput v-model="form.title" placeholder="ex: Encerramento de Natal" class="w-full" />
@@ -137,6 +147,7 @@ onMounted(loadBlackouts)
           @click="deleteBlackout(b.id)"
         />
       </div>
+    </div>
     </div>
   </UCard>
 </template>

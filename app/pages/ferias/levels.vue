@@ -30,6 +30,7 @@ interface Level {
   description: string | null
   step_order: number
   parent_id: number | null
+  is_rh: boolean
   members: Member[]
 }
 
@@ -63,7 +64,7 @@ const activeTab = ref('levels')
 // ── Level create/edit form ────────────────────────────────────────────────
 const showLevelForm = ref(false)
 const editingLevel = ref<Level | null>(null)
-const levelForm = reactive({ name: '', description: '' })
+const levelForm = reactive({ name: '', description: '', is_rh: false })
 const savingLevel = ref(false)
 
 // ── Delete confirmation ───────────────────────────────────────────────────
@@ -149,6 +150,7 @@ function openCreate() {
   editingLevel.value = null
   levelForm.name = ''
   levelForm.description = ''
+  levelForm.is_rh = false
   showLevelForm.value = true
 }
 
@@ -156,6 +158,7 @@ function openEdit(level: Level) {
   editingLevel.value = level
   levelForm.name = level.name
   levelForm.description = level.description ?? ''
+  levelForm.is_rh = level.is_rh ?? false
   showLevelForm.value = true
 }
 
@@ -166,13 +169,13 @@ async function saveLevel() {
     if (editingLevel.value) {
       await useApiFetch(`/api/approval-levels/${editingLevel.value.id}`, {
         method: 'PUT',
-        body: { name: levelForm.name, description: levelForm.description || null }
+        body: { name: levelForm.name, description: levelForm.description || null, is_rh: levelForm.is_rh }
       })
       toast.add({ title: 'Nível atualizado', color: 'success' })
     } else {
       await useApiFetch('/api/approval-levels', {
         method: 'POST',
-        body: { name: levelForm.name, description: levelForm.description || null }
+        body: { name: levelForm.name, description: levelForm.description || null, is_rh: levelForm.is_rh }
       })
       toast.add({ title: 'Nível criado', color: 'success' })
     }
@@ -382,9 +385,12 @@ onMounted(() => {
             >
               <template #header>
                 <div class="flex items-center justify-between gap-3">
-                  <div class="flex items-center gap-2">
+                  <div class="flex items-center gap-2 flex-wrap">
                     <UBadge color="primary" variant="subtle" size="sm">
                       Nível {{ level.step_order }}
+                    </UBadge>
+                    <UBadge v-if="level.is_rh" color="warning" variant="subtle" size="sm" icon="i-lucide-building-2">
+                      RH
                     </UBadge>
                     <span class="font-semibold text-sm">{{ level.name }}</span>
                     <span v-if="level.description" class="text-xs text-muted">
@@ -580,6 +586,17 @@ onMounted(() => {
             class="w-full"
           />
         </UFormField>
+        <div class="flex items-start gap-3 rounded-lg border border-default p-3 bg-elevated/50">
+          <UCheckbox v-model="levelForm.is_rh" />
+          <div>
+            <p class="text-sm font-medium">
+              Grupo de Recursos Humanos (RH)
+            </p>
+            <p class="text-xs text-muted mt-0.5">
+              Os membros deste nível serão notificados quando uma férias for aprovada e poderão registar o processamento na plataforma externa.
+            </p>
+          </div>
+        </div>
         <div class="flex justify-end gap-2 pt-1">
           <UButton label="Cancelar" color="neutral" variant="subtle" @click="showLevelForm = false" />
           <UButton

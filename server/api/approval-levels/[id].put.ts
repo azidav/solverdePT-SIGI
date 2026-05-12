@@ -7,12 +7,12 @@ export default defineEventHandler(async (event) => {
   if ((currentUser as any).permission > 0) throw createError({ statusCode: 403, message: 'Apenas administradores' })
 
   const id = parseInt(getRouterParam(event, 'id') || '0')
-  const { name, description } = await readBody(event)
+  const { name, description, is_rh } = await readBody(event)
   if (!name?.trim()) throw createError({ statusCode: 400, message: 'Nome obrigatório' })
 
   const [level] = await sql`
     UPDATE approval_levels
-    SET name = ${name.trim()}, description = ${description || null}, updated_at = NOW()
+    SET name = ${name.trim()}, description = ${description || null}, is_rh = ${!!is_rh}, updated_at = NOW()
     WHERE id = ${id}
     RETURNING *
   `

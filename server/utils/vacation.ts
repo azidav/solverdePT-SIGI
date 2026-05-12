@@ -3,7 +3,8 @@ import type { H3Event } from 'h3'
 import {
   sendVacationPendingApprovalEmail,
   sendVacationApprovedEmail,
-  sendVacationRejectedEmail
+  sendVacationRejectedEmail,
+  sendVacationRhNotificationEmail
 } from '~~/server/utils/email'
 
 function buildRequestUrl(event: H3Event, requestId: number): string {
@@ -227,24 +228,17 @@ export async function createWorkflowSteps(requestId: number, employeeId: number,
   let approvalChain: LevelRow[]
 
   if (membership) {
-    // Build the ancestor chain: immediate parent → grandparent → ... → root
-    const ancestors: LevelRow[] = []
-    let current = levelMap.get(membership.level_id)
-    while (current?.parent_id != null) {
-      const parent = levelMap.get(current.parent_id)
-      if (!parent) break
-      ancestors.push(parent)
-      current = parent
-    }
-
-    if (ancestors.length === 0) {
-      // Employee is at the root level — no one above to approve
+    const employeeLevel = levelMap.get(membership.level_id)
+    if (!employeeLevel?.parent_id) {
+      // Employee is at root level — no one above to approve
       return false
     }
-    approvalChain = ancestors
+    const immediateParent = levelMap.get(employeeLevel.parent_id)
+    if (!immediateParent) return false
+    approvalChain = [immediateParent]
   } else {
-    // Employee not assigned to any level — use full tree
-    approvalChain = buildLevelTree(levels)
+    // Employee not assigned to any level — auto-approve
+    return false
   }
 
   const rows = approvalChain.map((l, idx) => ({
@@ -393,6 +387,21 @@ export async function advanceWorkflow(
     // Notify employee of full approval
     if (employee?.email) {
       sendVacationApprovedEmail(employee.email, employee.name, {
+        startDate, endDate, daysCount: daysCount, requestUrl
+      }).catch(console.error)
+    }
+
+    // Notify RH group so they can process externally
+    const rhApprovers = await sql<{ email: string, name: string }[]>`
+      SELECT DISTINCT u.email, u.name
+      FROM approval_levels al
+      INNER JOIN approval_level_members alm ON alm.level_id = al.id
+      INNER JOIN users u ON u.id = alm.user_id
+      WHERE al.is_rh = true AND u.status = 1 AND u.email IS NOT NULL
+    `
+    if (rhApprovers.length > 0) {
+      sendVacationRhNotificationEmail(rhApprovers, {
+        employeeName: employee?.name ?? 'Colaborador',
         startDate, endDate, daysCount: daysCount, requestUrl
       }).catch(console.error)
     }

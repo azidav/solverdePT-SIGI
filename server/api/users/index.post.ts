@@ -15,8 +15,8 @@ export default defineEventHandler(async (event) => {
   const body = await readBody(event)
   const { username, name, email, department, permission, employee_no } = body
 
-  if (!username || !name || !email) {
-    throw createError({ statusCode: 400, message: 'Missing required fields' })
+  if (!username || !name || !email || !employee_no) {
+    throw createError({ statusCode: 400, message: 'Campos obrigatórios em falta' })
   }
 
   // Create user with no password — status 2 (pending activation)

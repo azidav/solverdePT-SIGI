@@ -34,6 +34,8 @@ interface RequestDetail {
   history: any[]
   steps: Step[]
   can_act: boolean
+  can_undo: boolean
+  processed_externally: boolean
 }
 
 const route = useRoute()
@@ -55,15 +57,14 @@ const actioning = ref(false)
 // Separate comment fields for each action
 const approveComment = ref('')
 const rejectComment = ref('')
-const skipComment = ref('')
 
 // Which inline form is open
-const activeForm = ref<'approve' | 'reject' | 'skip' | null>(null)
+const activeForm = ref<'approve' | 'reject' | null>(null)
 
 // Cancel confirmation
 const showCancelModal = ref(false)
 
-function toggleForm(form: 'approve' | 'reject' | 'skip') {
+function toggleForm(form: 'approve' | 'reject') {
   activeForm.value = activeForm.value === form ? null : form
 }
 
@@ -128,23 +129,6 @@ async function reject() {
   }
 }
 
-async function skipStep() {
-  actioning.value = true
-  try {
-    await useApiFetch(`/api/vacation-requests/${route.params.id}/skip`, {
-      method: 'PUT',
-      body: { comment: skipComment.value || 'Escalado pelo administrador' }
-    })
-    toast.add({ title: 'Nível escalado', color: 'success' })
-    skipComment.value = ''
-    activeForm.value = null
-    await loadRequest()
-  } catch (e: unknown) {
-    toast.add({ title: (e as { data?: { message?: string } })?.data?.message || 'Erro ao escalar', color: 'error' })
-  } finally {
-    actioning.value = false
-  }
-}
 
 async function cancelRequest() {
   actioning.value = true
@@ -157,6 +141,38 @@ async function cancelRequest() {
     toast.add({ title: (e as { data?: { message?: string } })?.data?.message || 'Erro ao cancelar', color: 'error' })
   } finally {
     actioning.value = false
+  }
+}
+
+const showUndoModal = ref(false)
+
+async function undoApproval() {
+  actioning.value = true
+  try {
+    await useApiFetch(`/api/vacation-requests/${route.params.id}/undo-approval`, { method: 'PUT' })
+    toast.add({ title: 'Aprovação revertida', description: 'O pedido voltou ao estado pendente.', color: 'success' })
+    showUndoModal.value = false
+    await loadRequest()
+  } catch (e: unknown) {
+    toast.add({ title: (e as { data?: { message?: string } })?.data?.message || 'Erro ao reverter aprovação', color: 'error' })
+  } finally {
+    actioning.value = false
+  }
+}
+
+async function toggleProcessedExternally(value: boolean) {
+  try {
+    await useApiFetch(`/api/vacation-requests/${route.params.id}/process-external`, {
+      method: 'PUT',
+      body: { processed: value }
+    })
+    if (request.value) request.value.processed_externally = value
+    toast.add({
+      title: value ? 'Registado como processado' : 'Marcado como não processado',
+      color: 'success'
+    })
+  } catch (e: unknown) {
+    toast.add({ title: (e as { data?: { message?: string } })?.data?.message || 'Erro ao atualizar estado', color: 'error' })
   }
 }
 
@@ -223,8 +239,9 @@ onMounted(loadRequest)
                 </div>
 
                 <!-- Cancel own pending request -->
-                <div v-if="request.status === 'pending'" class="flex justify-end pt-1">
+                <div v-if="request.status === 'pending' || request.can_undo" class="flex justify-end gap-2 pt-1">
                   <UButton
+                    v-if="request.status === 'pending'"
                     icon="i-lucide-x"
                     label="Cancelar Pedido"
                     color="error"
@@ -232,7 +249,42 @@ onMounted(loadRequest)
                     size="sm"
                     @click="showCancelModal = true"
                   />
+                  <UButton
+                    v-if="request.can_undo"
+                    icon="i-lucide-rotate-ccw"
+                    label="Reverter Aprovação"
+                    color="warning"
+                    variant="ghost"
+                    size="sm"
+                    @click="showUndoModal = true"
+                  />
                 </div>
+              </div>
+            </UCard>
+
+            <!-- RH: external processing -->
+            <UCard v-if="can('VACATION:RH') && request.status === 'approved'">
+              <div class="flex items-center gap-3">
+                <UCheckbox
+                  :model-value="request.processed_externally"
+                  @update:model-value="toggleProcessedExternally"
+                />
+                <div>
+                  <p class="text-sm font-medium">
+                    Pedido processado para a plataforma externa
+                  </p>
+                  <p class="text-xs text-muted mt-0.5">
+                    Marque após registar as férias no sistema externo de RH.
+                  </p>
+                </div>
+                <UBadge
+                  v-if="request.processed_externally"
+                  color="success"
+                  variant="subtle"
+                  icon="i-lucide-check-circle"
+                  label="Processado"
+                  class="ml-auto shrink-0"
+                />
               </div>
             </UCard>
 
@@ -326,14 +378,6 @@ onMounted(loadRequest)
                     :variant="activeForm === 'reject' ? 'solid' : 'outline'"
                     @click="toggleForm('reject')"
                   />
-                  <UButton
-                    v-if="can('SETTINGS:MANAGE_USERS')"
-                    icon="i-lucide-skip-forward"
-                    label="Escalar Nível"
-                    color="warning"
-                    :variant="activeForm === 'skip' ? 'solid' : 'outline'"
-                    @click="toggleForm('skip')"
-                  />
                 </div>
 
                 <div
@@ -362,18 +406,6 @@ onMounted(loadRequest)
                   </div>
                 </div>
 
-                <div
-                  v-if="activeForm === 'skip'"
-                  class="space-y-3 rounded-lg border border-warning-200 bg-warning-50 dark:bg-warning-950/30 p-3"
-                >
-                  <UFormField label="Motivo de Escalada">
-                    <UTextarea v-model="skipComment" placeholder="Explique por que está a escalar este nível..." :rows="2" class="w-full" />
-                  </UFormField>
-                  <div class="flex gap-2 justify-end">
-                    <UButton label="Cancelar" variant="ghost" size="sm" @click="activeForm = null" />
-                    <UButton label="Confirmar Escalada" color="warning" icon="i-lucide-skip-forward" size="sm" :loading="actioning" @click="skipStep" />
-                  </div>
-                </div>
               </div>
             </UCard>
           </div>
@@ -392,6 +424,31 @@ onMounted(loadRequest)
         </div>
       </template>
   </div>
+
+  <!-- Undo approval modal -->
+  <UModal
+    v-model:open="showUndoModal"
+    title="Reverter Aprovação"
+    :ui="{ content: 'max-w-sm' }"
+  >
+    <template #body>
+      <div class="space-y-4">
+        <p class="text-sm">
+          Tem a certeza que pretende reverter a aprovação? O pedido voltará ao estado <strong>pendente</strong> e terá de ser aprovado novamente.
+        </p>
+        <div class="flex justify-end gap-2">
+          <UButton label="Cancelar" color="neutral" variant="subtle" @click="showUndoModal = false" />
+          <UButton
+            label="Reverter"
+            color="warning"
+            icon="i-lucide-rotate-ccw"
+            :loading="actioning"
+            @click="undoApproval"
+          />
+        </div>
+      </div>
+    </template>
+  </UModal>
 
   <!-- Cancel confirmation modal -->
   <UModal

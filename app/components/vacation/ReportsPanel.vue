@@ -1,6 +1,7 @@
 <script setup lang="ts">
 const toast = useToast()
 const { formatDate, TYPE_LABELS, STATUS_LABELS, formatDays } = useVacationUtils()
+const open = ref(false)
 
 const currentYear = new Date().getFullYear()
 
@@ -258,17 +259,24 @@ async function downloadEmployeePdf() {
 </script>
 
 <template>
-  <UCard>
+  <UCard :ui="{ body: 'p-0 sm:p-0' }">
     <template #header>
-      <div class="flex items-center gap-2">
-        <UIcon name="i-lucide-bar-chart-2" class="size-4 text-primary" />
-        <h3 class="font-semibold">
-          Relatórios de Férias
-        </h3>
-      </div>
+      <button class="flex items-center justify-between w-full gap-2" @click="open = !open">
+        <div class="flex items-center gap-2">
+          <UIcon name="i-lucide-bar-chart-2" class="size-4 text-primary" />
+          <h3 class="font-semibold">
+            Relatórios de Férias
+          </h3>
+        </div>
+        <UIcon
+          name="i-lucide-chevron-down"
+          class="size-4 text-muted transition-transform"
+          :class="open ? 'rotate-180' : ''"
+        />
+      </button>
     </template>
 
-    <div class="space-y-6">
+    <div v-if="open" class="p-4 sm:p-6 space-y-6">
       <!-- Report 1: Balanço Anual -->
       <div class="space-y-2">
         <p class="text-sm font-medium">

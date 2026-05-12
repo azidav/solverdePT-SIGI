@@ -51,6 +51,22 @@ export default defineEventHandler(async (event) => {
 
   await assertNoBlackout(start_date, end_date, employee?.department ?? null)
 
+  // Block overlapping requests that are pending or approved
+  const [overlap] = await sql`
+    SELECT id FROM vacation_requests
+    WHERE employee_id = ${currentUser.id}
+      AND status IN ('pending', 'approved')
+      AND start_date <= ${end_date}
+      AND end_date >= ${start_date}
+    LIMIT 1
+  `
+  if (overlap) {
+    throw createError({
+      statusCode: 422,
+      message: 'Já existe um pedido pendente ou aprovado que inclui esse período.'
+    })
+  }
+
   const daysCount = half_day
     ? 0.5
     : await countWorkingDays(start_date, end_date, employee?.department ?? null, !!include_weekends)
@@ -125,43 +141,34 @@ export default defineEventHandler(async (event) => {
       sendVacationApprovedEmail(emp.email, emp.name, { startDate: startFmt, endDate: endFmt, daysCount, requestUrl }).catch(console.error)
     }
 
-    // Notify the people who would normally approve this employee's requests
+    // Notify the immediate parent level (the one that would normally approve)
     if (!requiresChain) {
       const [typeRow] = await sql<{ name: string }[]>`SELECT name FROM vacation_types WHERE code = ${type} LIMIT 1`
 
-      // Compute the ancestor chain for this employee (same logic as createWorkflowSteps)
       const allLevels = await sql<{ id: number, parent_id: number | null }[]>`SELECT id, parent_id FROM approval_levels`
       const [empMembership] = await sql<{ level_id: number }[]>`
         SELECT level_id FROM approval_level_members WHERE user_id = ${currentUser.id} LIMIT 1
       `
 
-      const ancestorLevelIds: number[] = []
       if (empMembership) {
         const levelMap = new Map(allLevels.map(l => [l.id, l]))
-        let cur = levelMap.get(empMembership.level_id)
-        while (cur?.parent_id != null) {
-          const parent = levelMap.get(cur.parent_id)
-          if (!parent) break
-          ancestorLevelIds.push(parent.id)
-          cur = parent
-        }
-      }
-
-      if (ancestorLevelIds.length > 0) {
-        const chainApprovers = await sql<{ email: string, name: string }[]>`
-          SELECT DISTINCT u.email, u.name FROM approval_level_members alm
-          JOIN users u ON u.id = alm.user_id
-          WHERE alm.level_id = ANY(${ancestorLevelIds}) AND u.status = 1 AND u.email IS NOT NULL
-        `
-        if (chainApprovers.length > 0) {
-          sendVacationAutoApprovedNotificationEmail(chainApprovers, {
-            employeeName: emp.name,
-            typeName: typeRow?.name ?? String(type),
-            startDate: startFmt,
-            endDate: endFmt,
-            daysCount,
-            requestUrl
-          }).catch(console.error)
+        const empLevel = levelMap.get(empMembership.level_id)
+        if (empLevel?.parent_id) {
+          const parentApprovers = await sql<{ email: string, name: string }[]>`
+            SELECT u.email, u.name FROM approval_level_members alm
+            JOIN users u ON u.id = alm.user_id
+            WHERE alm.level_id = ${empLevel.parent_id} AND u.status = 1 AND u.email IS NOT NULL
+          `
+          if (parentApprovers.length > 0) {
+            sendVacationAutoApprovedNotificationEmail(parentApprovers, {
+              employeeName: emp.name,
+              typeName: typeRow?.name ?? String(type),
+              startDate: startFmt,
+              endDate: endFmt,
+              daysCount,
+              requestUrl
+            }).catch(console.error)
+          }
         }
       }
     }

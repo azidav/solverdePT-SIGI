@@ -17,7 +17,10 @@ async function getSmtpConfig(): Promise<SmtpConfig | null> {
       SELECT key, value FROM config_variables WHERE section = 'email'
     `
     const cfg: Record<string, string> = {}
-    rows.forEach((r: { key: string; value: string }) => { cfg[r.key] = r.value })
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    rows.forEach((r: any) => {
+      cfg[r.key] = r.value
+    })
 
     if (!cfg.smtp_host || !cfg.smtp_user || !cfg.smtp_password) return null
 
@@ -36,7 +39,6 @@ async function getSmtpConfig(): Promise<SmtpConfig | null> {
 }
 
 export async function sendEmail(to: string, subject: string, html: string): Promise<boolean> {
-
   // send fake email test — set to `false as boolean` to use real SMTP
   if (true as boolean) {
     try {
@@ -68,8 +70,6 @@ export async function sendEmail(to: string, subject: string, html: string): Prom
       return false
     }
   }
-
-
 
   const cfg = await getSmtpConfig()
   if (!cfg) {
@@ -138,7 +138,7 @@ export async function sendVacationApprovedEmail(
     <div style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;padding:24px;">
       <h2 style="color:#00C16A;">Pedido de Férias Aprovado</h2>
       <p>Olá <strong>${name}</strong>,</p>
-      <p>O seu pedido de férias foi <strong>aprovado</strong> por todos os níveis.</p>
+      <p>O seu pedido de férias foi <strong>aprovado</strong>.</p>
       <div style="background:#f0fdf4;border-radius:8px;padding:16px;margin:16px 0;border:1px solid #bbf7d0;">
         <p style="margin:4px 0;"><strong>Período:</strong> ${opts.startDate} → ${opts.endDate}</p>
         <p style="margin:4px 0;"><strong>Dias úteis:</strong> ${opts.daysCount}</p>
@@ -195,6 +195,34 @@ export async function sendVacationAutoApprovedNotificationEmail(
   await Promise.all(
     approvers.map(a =>
       sendEmail(a.email, subject, html).catch(err => console.error('[Email] Notificação automática', a.email, err))
+    )
+  )
+}
+
+export async function sendVacationRhNotificationEmail(
+  rhUsers: { email: string, name: string }[],
+  opts: { employeeName: string, startDate: string, endDate: string, daysCount: number, requestUrl: string }
+): Promise<void> {
+  const subject = `Férias aprovadas — ${opts.employeeName} (para processamento externo)`
+  const html = `
+    <div style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;padding:24px;">
+      <h2 style="color:#00C16A;">Nova Aprovação de Férias — Ação RH</h2>
+      <p>O pedido de férias de <strong>${opts.employeeName}</strong> foi <strong>aprovado</strong> e aguarda processamento na plataforma externa.</p>
+      <div style="background:#f0fdf4;border-radius:8px;padding:16px;margin:16px 0;border:1px solid #bbf7d0;">
+        <p style="margin:4px 0;"><strong>Colaborador:</strong> ${opts.employeeName}</p>
+        <p style="margin:4px 0;"><strong>Período:</strong> ${opts.startDate} → ${opts.endDate}</p>
+        <p style="margin:4px 0;"><strong>Dias úteis:</strong> ${opts.daysCount}</p>
+      </div>
+      <a href="${opts.requestUrl}" style="display:inline-block;background:#00C16A;color:white;padding:12px 28px;border-radius:8px;text-decoration:none;font-weight:bold;margin:16px 0;">
+        Ver Pedido e Registar Processamento
+      </a>
+      <hr style="border:none;border-top:1px solid #eee;margin:24px 0;">
+      <p style="font-size:12px;color:#999;">Link direto: <a href="${opts.requestUrl}">${opts.requestUrl}</a></p>
+    </div>
+  `
+  await Promise.all(
+    rhUsers.map(u =>
+      sendEmail(u.email, subject, html).catch(err => console.error('[Email] RH notificação', u.email, err))
     )
   )
 }

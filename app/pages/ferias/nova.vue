@@ -33,6 +33,11 @@ watch(() => form.half_day, (v) => {
   if (v && form.start_date) form.end_date = form.start_date
 })
 
+// Auto-fill end_date with start_date when end hasn't been picked yet
+watch(() => form.start_date, (val) => {
+  if (val && !form.end_date) form.end_date = val
+})
+
 const blackouts = ref<Blackout[]>([])
 const balance = ref<Balance | null>(null)
 const submitting = ref(false)

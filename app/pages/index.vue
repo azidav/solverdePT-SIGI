@@ -20,6 +20,7 @@ interface Reservation {
 const auth = useAuth()
 const userName = computed(() => auth.user.value?.name || auth.user.value?.username || '')
 const { STATUS_LABELS, STATUS_COLORS, TYPE_LABELS, formatDate } = useVacationUtils()
+const { can } = useRbac()
 
 const vacationRequests = ref<VacationRequest[]>([])
 const loadingVacations = ref(false)
@@ -40,6 +41,30 @@ const loadingPending = ref(false)
 
 const reservations = ref<Reservation[]>([])
 const loadingReservations = ref(false)
+
+interface UnprocessedRequest {
+  id: number
+  type: string
+  start_date: string
+  end_date: string
+  days_count: number
+  employee_name: string
+}
+
+const unprocessedRequests = ref<UnprocessedRequest[]>([])
+const loadingUnprocessed = ref(false)
+
+async function loadUnprocessed() {
+  loadingUnprocessed.value = true
+  try {
+    const res = await useApiFetch('/api/vacation-requests?unprocessed=1&limit=5') as { data: UnprocessedRequest[] }
+    unprocessedRequests.value = res.data ?? []
+  } catch {
+    unprocessedRequests.value = []
+  } finally {
+    loadingUnprocessed.value = false
+  }
+}
 
 async function loadPendingApprovals() {
   loadingPending.value = true
@@ -98,6 +123,7 @@ onMounted(() => {
   loadPendingApprovals()
   loadVacations()
   loadReservations()
+  loadUnprocessed()
 })
 </script>
 
@@ -183,6 +209,68 @@ onMounted(() => {
                 size="xs"
                 class="shrink-0 hidden sm:flex"
               />
+              <UIcon name="i-lucide-chevron-right" class="size-4 text-muted shrink-0" />
+            </div>
+          </div>
+        </UCard>
+
+        <!-- RH: unprocessed approved requests -->
+        <UCard
+          v-if="can('VACATION:RH')"
+          class="border-warning-200 dark:border-warning-800"
+        >
+          <template #header>
+            <div class="flex items-center justify-between">
+              <div class="flex items-center gap-2">
+                <UIcon name="i-lucide-clock-alert" class="size-4 text-warning-500" />
+                <h2 class="font-semibold text-sm">
+                  Férias aprovadas por processar
+                </h2>
+                <UBadge
+                  v-if="unprocessedRequests.length > 0"
+                  :label="String(unprocessedRequests.length)"
+                  color="warning"
+                  variant="solid"
+                  size="xs"
+                />
+              </div>
+              <UButton
+                label="Ver tudo"
+                icon="i-lucide-arrow-right"
+                trailing
+                size="xs"
+                color="neutral"
+                variant="ghost"
+                to="/ferias/admin"
+              />
+            </div>
+          </template>
+
+          <div v-if="loadingUnprocessed" class="flex justify-center py-6">
+            <UIcon name="i-lucide-loader-2" class="size-5 animate-spin text-muted" />
+          </div>
+
+          <div v-else-if="unprocessedRequests.length === 0" class="py-6 text-center text-sm text-muted">
+            Nenhum pedido por processar.
+          </div>
+
+          <div v-else class="divide-y divide-default">
+            <div
+              v-for="r in unprocessedRequests"
+              :key="r.id"
+              class="flex items-center gap-3 py-3 first:pt-0 last:pb-0 cursor-pointer hover:bg-elevated/40 -mx-4 px-4 transition-colors rounded"
+              @click="navigateTo(`/ferias/${r.id}`)"
+            >
+              <UIcon name="i-lucide-user" class="size-4 text-muted shrink-0" />
+              <div class="flex-1 min-w-0">
+                <p class="text-sm font-medium">
+                  {{ r.employee_name }}
+                </p>
+                <p class="text-xs text-muted mt-0.5">
+                  {{ TYPE_LABELS[r.type] || r.type }} · {{ formatDate(r.start_date) }} → {{ formatDate(r.end_date) }}
+                  <span class="ml-1">({{ r.days_count }} dia{{ r.days_count !== 1 ? 's' : '' }})</span>
+                </p>
+              </div>
               <UIcon name="i-lucide-chevron-right" class="size-4 text-muted shrink-0" />
             </div>
           </div>

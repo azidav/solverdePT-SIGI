@@ -18,6 +18,7 @@ interface Absence {
   id: number
   employee_id: number
   type: string
+  status: string
   start_date: string
   end_date: string
   days_count: number
@@ -126,12 +127,15 @@ function getSubtreeIds(rootId: number): number[] {
 }
 
 // Level IDs the current user is allowed to view (null = unrestricted)
+// Only includes levels BELOW the user — own level excluded (peers not visible)
 const allowedLevelIds = computed<number[] | null>(() => {
   if (can('VACATION:VIEW_ALL_TEAM')) return null
   const myId = user.value?.id
   if (!myId) return []
   const myLevel = levels.value.find(l => l.members.some(m => m.id === myId))
-  return myLevel ? getSubtreeIds(myLevel.id) : []
+  if (!myLevel) return []
+  const childIds = levels.value.filter(l => l.parent_id === myLevel.id).map(l => l.id)
+  return childIds.flatMap(id => getSubtreeIds(id))
 })
 
 const levelOptions = computed(() => {
@@ -143,10 +147,10 @@ const levelOptions = computed(() => {
 
 const usersInSelectedLevel = computed<LevelMember[]>(() => {
   const allowed = allowedLevelIds.value
+  const myId = user.value?.id
   const seen = new Set<number>()
   const all: LevelMember[] = []
 
-  // Start from explicitly selected levels, or fall back to all allowed levels
   let source = levels.value.filter(l => allowed === null || allowed.includes(l.id))
   if (selectedLevelIds.value.length > 0) {
     source = source.filter(l => selectedLevelIds.value.includes(l.id))
@@ -157,6 +161,14 @@ const usersInSelectedLevel = computed<LevelMember[]>(() => {
       if (!seen.has(m.id)) { seen.add(m.id); all.push(m) }
     }
   }
+
+  // Always include the current user themselves
+  if (myId && !seen.has(myId)) {
+    const myLevel = levels.value.find(l => l.members.some(m => m.id === myId))
+    const me = myLevel?.members.find(m => m.id === myId)
+    if (me) { seen.add(myId); all.push(me) }
+  }
+
   return all.sort((a, b) => a.name.localeCompare(b.name))
 })
 
@@ -211,14 +223,16 @@ function parseLocalDate(dateStr: string): Date {
   return new Date(part + 'T00:00:00')
 }
 
-function isUserAbsent(userId: number, day: number): boolean {
+function getUserDayStatus(userId: number, day: number): 'approved' | 'pending' | null {
   const userAbsences = absencesByUser.value.get(userId) ?? []
   const d = new Date(currentYear.value, currentMonth.value - 1, day)
-  return userAbsences.some(a => {
+  const match = userAbsences.find(a => {
     const start = parseLocalDate(a.start_date)
     const end = parseLocalDate(a.end_date)
     return d >= start && d <= end
   })
+  if (!match) return null
+  return match.status === 'approved' ? 'approved' : 'pending'
 }
 
 function isWeekend(day: number): boolean {
@@ -255,12 +269,7 @@ async function loadLevels() {
     const data = await useApiFetch('/api/approval-levels') as Level[]
     levels.value = data
 
-    // Pre-select the logged-in user's own level (always within allowed set)
-    const myId = user.value?.id
-    if (myId) {
-      const myLevel = data.find(l => l.members.some(m => m.id === myId))
-      if (myLevel) selectedLevelIds.value = [myLevel.id]
-    }
+    // No pre-selection — show all subordinates + self by default
   } catch {
     // levels stay empty — filters won't show
   }
@@ -391,10 +400,13 @@ onMounted(async () => {
                 class="p-0.5 relative"
               >
                 <div
-                  v-if="isUserAbsent(member.id, day)"
+                  v-if="getUserDayStatus(member.id, day)"
                   class="h-5 rounded-sm"
-                  :class="[userColorMap.get(member.id), isWeekend(day) ? 'opacity-30' : 'opacity-80']"
-                  :title="`${member.name} — ausente`"
+                  :class="[
+                    userColorMap.get(member.id),
+                    getUserDayStatus(member.id, day) === 'approved' ? 'opacity-90' : 'opacity-35'
+                  ]"
+                  :title="`${member.name} — ${getUserDayStatus(member.id, day) === 'approved' ? 'aprovado' : 'pendente'}`"
                 />
                 <div
                   v-else-if="isBirthday(member, day)"
@@ -408,6 +420,22 @@ onMounted(async () => {
             </tr>
           </tbody>
         </table>
+      </div>
+
+      <!-- Legend -->
+      <div class="flex items-center gap-4 mt-3 pt-3 border-t border-default">
+        <div class="flex items-center gap-1.5">
+          <div class="h-3 w-5 rounded-sm bg-blue-500 opacity-90" />
+          <span class="text-xs text-muted">Aprovado</span>
+        </div>
+        <div class="flex items-center gap-1.5">
+          <div class="h-3 w-5 rounded-sm bg-blue-500 opacity-35" />
+          <span class="text-xs text-muted">Pendente</span>
+        </div>
+        <div v-if="birthdayEnabled" class="flex items-center gap-1.5">
+          <span class="text-xs">🎂</span>
+          <span class="text-xs text-muted">Aniversário</span>
+        </div>
       </div>
     </div>
   </UCard>

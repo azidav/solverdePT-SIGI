@@ -9,24 +9,37 @@ export default defineEventHandler(async (event) => {
   const canViewTeam = await hasUserPermission(event, ['VACATION:VIEW_TEAM'])
   const canViewOwn = await hasUserPermission(event, ['VACATION:VIEW_OWN'])
 
-  if (!canViewOwn && !canViewTeam) {
+  // RH members can access the unprocessed list even without VIEW_TEAM
+  const [isRhMember] = await sql`
+    SELECT 1 FROM approval_level_members alm
+    INNER JOIN approval_levels al ON al.id = alm.level_id
+    WHERE alm.user_id = ${currentUser.id} AND al.is_rh = true LIMIT 1
+  `
+
+  const query = getQuery(event)
+  const unprocessed = query.unprocessed === '1'
+
+  if (!canViewOwn && !canViewTeam && !(unprocessed && isRhMember)) {
     throw createError({ statusCode: 403, message: 'Sem permissão para ver pedidos de férias' })
   }
 
-  const query = getQuery(event)
   const status = query.status as string | undefined
   const year = query.year ? parseInt(query.year as string) : null
   const page = Math.max(1, parseInt(query.page as string) || 1)
   const limit = Math.min(100, parseInt(query.limit as string) || 20)
   const offset = (page - 1) * limit
 
+  const ownOnly = query.own === '1'
+
   let whereClause = sql`WHERE 1=1`
 
-  if (!canViewTeam) {
+  if (!canViewTeam || ownOnly) {
     whereClause = sql`${whereClause} AND vr.employee_id = ${currentUser.id}`
   }
 
-  if (status) {
+  if (unprocessed) {
+    whereClause = sql`${whereClause} AND vr.status = 'approved' AND vr.processed_externally = false`
+  } else if (status) {
     whereClause = sql`${whereClause} AND vr.status = ${status}`
   }
 

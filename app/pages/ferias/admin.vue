@@ -18,6 +18,8 @@ interface Request {
 
 const toast = useToast()
 const { can, canApproveVacation } = useRbac()
+
+const uploadOpen = ref(false)
 const { STATUS_LABELS, STATUS_COLORS, TYPE_LABELS, formatDate, formatDaysLabel } = useVacationUtils()
 
 const requests = ref<Request[]>([])
@@ -25,16 +27,17 @@ const loading = ref(true)
 const filterStatus = ref('pending')
 const page = ref(1)
 const total = ref(0)
-const limit = 20
+const limit = 10
 
 async function loadRequests() {
   loading.value = true
   try {
-    const params = new URLSearchParams({
-      page: String(page.value),
-      limit: String(limit),
-      ...(filterStatus.value ? { status: filterStatus.value } : {})
-    })
+    const params = new URLSearchParams({ page: String(page.value), limit: String(limit) })
+    if (filterStatus.value === 'to_process') {
+      params.set('unprocessed', '1')
+    } else if (filterStatus.value) {
+      params.set('status', filterStatus.value)
+    }
     const res = await useApiFetch(`/api/vacation-requests?${params}`) as any
     requests.value = res.data ?? []
     total.value = res.pagination?.total ?? 0
@@ -75,7 +78,7 @@ function onFileChange(e: Event) {
   const reader = new FileReader()
   reader.onload = (ev) => {
     try {
-      const wb = XLSX.read(ev.target?.result, { type: 'binary' })
+      const wb = XLSX.read(ev.target?.result, { type: 'array' })
       const sheet = wb.Sheets[wb.SheetNames[0]!]!
       const raw = XLSX.utils.sheet_to_json<Record<string, unknown>>(sheet, { defval: '' })
 
@@ -98,7 +101,7 @@ function onFileChange(e: Event) {
       uploadErrors.value = ['Erro ao ler o ficheiro. Certifique-se que é um ficheiro Excel válido.']
     }
   }
-  reader.readAsBinaryString(file)
+  reader.readAsArrayBuffer(file)
 }
 
 async function submitUpload() {
@@ -128,21 +131,28 @@ onMounted(loadRequests)
 
 <template>
   <div class="p-4 space-y-4 overflow-y-auto">
-      <!-- Reports -->
-      <VacationReportsPanel v-if="can('VACATION:VIEW_TEAM')" />
+      <!-- Reports (collapsible, self-managed) -->
+      <VacationReportsPanel v-if="can('VACATION:EXPORT_REPORTS')" />
 
-      <!-- Balance upload -->
-      <UCard v-if="can('VACATION:IMPORT_BALANCES')">
+      <!-- Balance upload (collapsible) -->
+      <UCard v-if="can('VACATION:IMPORT_BALANCES')" :ui="{ body: uploadOpen ? '' : 'hidden' }">
         <template #header>
-          <div class="flex items-center gap-2">
-            <UIcon name="i-lucide-upload" class="size-4 text-primary" />
-            <h3 class="font-semibold">
-              Importar Saldos de Férias
-            </h3>
-          </div>
+          <button class="flex items-center justify-between w-full gap-2" @click="uploadOpen = !uploadOpen">
+            <div class="flex items-center gap-2">
+              <UIcon name="i-lucide-upload" class="size-4 text-primary" />
+              <h3 class="font-semibold">
+                Importar Saldos de Férias
+              </h3>
+            </div>
+            <UIcon
+              name="i-lucide-chevron-down"
+              class="size-4 text-muted transition-transform"
+              :class="uploadOpen ? 'rotate-180' : ''"
+            />
+          </button>
         </template>
 
-        <div class="space-y-4">
+        <div v-if="uploadOpen" class="space-y-4">
           <div class="flex items-center gap-3 flex-wrap">
             <UFormField label="Ano">
               <div class="flex items-center gap-1">
@@ -173,7 +183,6 @@ onMounted(loadRequests)
             />
           </div>
 
-          <!-- Parse errors -->
           <UAlert
             v-if="uploadErrors.length > 0"
             color="error"
@@ -188,7 +197,6 @@ onMounted(loadRequests)
             </template>
           </UAlert>
 
-          <!-- Preview table -->
           <div v-if="uploadRows.length > 0" class="overflow-x-auto">
             <p class="text-xs text-muted mb-2">
               {{ uploadRows.length }} linha(s) para importar — ano {{ uploadYear }}
@@ -217,7 +225,7 @@ onMounted(loadRequests)
         </div>
       </UCard>
 
-      <!-- Blackout Manager -->
+      <!-- Blackout Manager (collapsible, self-managed) -->
       <VacationBlackoutManager v-if="can('VACATION:CONFIG_PERIODS')" />
 
       <!-- Requests list -->
@@ -235,6 +243,16 @@ onMounted(loadRequests)
                 :variant="filterStatus === opt.key ? 'solid' : 'ghost'"
                 :label="opt.label"
                 @click="filterStatus = opt.key; page = 1"
+              />
+              <UButton
+                v-if="can('VACATION:RH')"
+                key="to_process"
+                size="xs"
+                :variant="filterStatus === 'to_process' ? 'solid' : 'ghost'"
+                color="warning"
+                label="Por processar"
+                icon="i-lucide-clock-alert"
+                @click="filterStatus = 'to_process'; page = 1"
               />
             </div>
           </div>
@@ -278,7 +296,7 @@ onMounted(loadRequests)
             <UPagination
               v-model:page="page"
               :total="total"
-              :page-size="limit"
+              :items-per-page="limit"
             />
           </div>
         </template>

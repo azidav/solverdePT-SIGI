@@ -34,12 +34,15 @@ export default defineEventHandler(async (event) => {
 
   const permissionCodes = permissions.map((p: any) => p.code)
 
-  // Inject synthetic flag if user is a member of any approval level
-  const [levelMembership] = await sql`
-    SELECT 1 FROM approval_level_members WHERE user_id = ${currentUser.id} LIMIT 1
+  // Inject synthetic RH flag if user is a member of an RH-designated level
+  const [rhMembership] = await sql`
+    SELECT 1 FROM approval_level_members alm
+    INNER JOIN approval_levels al ON al.id = alm.level_id
+    WHERE alm.user_id = ${currentUser.id} AND al.is_rh = true
+    LIMIT 1
   `
-  if (levelMembership && !permissionCodes.includes('VACATION:APPROVE')) {
-    permissionCodes.push('VACATION:APPROVE')
+  if (rhMembership && !permissionCodes.includes('VACATION:RH')) {
+    permissionCodes.push('VACATION:RH')
   }
 
   return {

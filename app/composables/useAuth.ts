@@ -15,7 +15,8 @@ interface User {
 export const useAuth = () => {
   // Persisted/shared state across the app using Nuxt's useState
   // Also store a cookie so auth survives full page reloads
-  const userCookie = useCookie<User | null>('auth.user', { maxAge: 3600 })
+  const SESSION_MAX_AGE = 8 * 60 * 60 // 8 hours — must match JWT_EXPIRES_IN on the server
+  const userCookie = useCookie<User | null>('auth.user', { maxAge: SESSION_MAX_AGE })
   const user = useState<User | null>('auth.user', () => {
     try {
       return (userCookie.value as unknown) as User | null
@@ -39,8 +40,8 @@ export const useAuth = () => {
       if (response && response.user) {
         const u = response.user
         user.value = u
-        userCookie.value = u // cookie will expire in 1 hour
-        const logged = useCookie('auth.loggedIn')
+        userCookie.value = u
+        const logged = useCookie('auth.loggedIn', { maxAge: SESSION_MAX_AGE })
         logged.value = '1'
         navigateTo('/')
       }
@@ -55,7 +56,7 @@ export const useAuth = () => {
   const loginWithUser = (u: User) => {
     user.value = u
     userCookie.value = u
-    useCookie('auth.loggedIn').value = '1'
+    useCookie('auth.loggedIn', { maxAge: SESSION_MAX_AGE }).value = '1'
   }
 
   const logout = () => {

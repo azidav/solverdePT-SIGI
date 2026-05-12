@@ -45,7 +45,7 @@ const baseSchema = {
   email: z.email('Email inválido'),
   job_title: z.string().optional(),
   birthday: z.string().optional(),
-  employee_no: z.string().optional()
+  employee_no: z.string().min(1, 'Nº de identificação obrigatório')
 }
 
 const createSchema = z.object({
@@ -55,7 +55,8 @@ const createSchema = z.object({
 
 const editSchema = z.object({
   ...baseSchema,
-  username: z.string().optional()
+  username: z.string().optional(),
+  employee_no: z.string().optional()
 })
 
 const schema = computed(() => isEditMode.value ? editSchema : createSchema)
@@ -314,6 +315,7 @@ onMounted(() => {
       <UFormField
         label="Nº de Identificação"
         name="employee_no"
+        :required="!isEditMode"
       >
         <UInput
           v-model="state.employee_no"

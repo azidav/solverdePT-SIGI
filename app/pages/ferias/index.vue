@@ -28,6 +28,9 @@ const requests = ref<Request[]>([])
 const balance = ref<Balance | null>(null)
 const loading = ref(true)
 const filterStatus = ref('')
+const page = ref(1)
+const total = ref(0)
+const limit = 10
 const now = new Date()
 const selectedYear = ref(now.getFullYear())
 
@@ -48,32 +51,48 @@ const availableDays = computed(() =>
   Number(balance.value?.pending_days ?? 0)
 )
 
-const filteredRequests = computed(() =>
-  filterStatus.value
-    ? requests.value.filter((r) => r.status === filterStatus.value)
-    : requests.value
-)
-
-async function loadData() {
+async function loadRequests() {
   loading.value = true
   try {
-    const [reqs, bal] = await Promise.all([
-      useApiFetch(`/api/vacation-requests?limit=100&year=${selectedYear.value}`),
-      useApiFetch(`/api/vacation-requests/balance?year=${selectedYear.value}`)
-    ])
-    requests.value = (reqs as any).data ?? []
-    balance.value = bal as Balance
+    const params = new URLSearchParams({
+      own: '1',
+      page: String(page.value),
+      limit: String(limit),
+      year: String(selectedYear.value)
+    })
+    if (filterStatus.value) params.set('status', filterStatus.value)
+    const res = await useApiFetch(`/api/vacation-requests?${params}`) as any
+    requests.value = res.data ?? []
+    total.value = res.pagination?.total ?? 0
   } catch {
-    toast.add({ title: 'Erro ao carregar dados', color: 'error' })
+    toast.add({ title: 'Erro ao carregar pedidos', color: 'error' })
   } finally {
     loading.value = false
   }
 }
 
+async function loadBalance() {
+  try {
+    balance.value = await useApiFetch(`/api/vacation-requests/balance?year=${selectedYear.value}`) as Balance
+  } catch {}
+}
+
+async function loadData() {
+  await Promise.all([loadRequests(), loadBalance()])
+}
+
 watch(selectedYear, () => {
   filterStatus.value = ''
+  page.value = 1
   loadData()
 })
+
+watch(filterStatus, () => {
+  page.value = 1
+  loadRequests()
+})
+
+watch(page, loadRequests)
 
 function confirmCancel(id: number) {
   cancelTargetId.value = id
@@ -87,7 +106,7 @@ async function cancelRequest() {
     await useApiFetch(`/api/vacation-requests/${cancelTargetId.value}`, { method: 'DELETE' })
     toast.add({ title: 'Pedido cancelado com sucesso', color: 'success' })
     showCancelModal.value = false
-    await loadData()
+    await Promise.all([loadRequests(), loadBalance()])
   } catch (e: unknown) {
     toast.add({ title: (e as { data?: { message?: string } })?.data?.message || 'Erro ao cancelar pedido', color: 'error' })
   } finally {
@@ -185,17 +204,6 @@ onMounted(loadData)
         />
       </div>
 
-      <!-- Status filter + new request button -->
-      <div class="flex items-center justify-between gap-3 flex-wrap">
-        <UButton
-          v-if="can('VACATION:CREATE')"
-          label="Novo Pedido"
-          icon="i-lucide-plus"
-          color="primary"
-          to="/ferias/nova"
-        />
-      </div>
-
       <div class="flex gap-1.5 flex-wrap">
         <UButton
           size="sm"
@@ -218,7 +226,7 @@ onMounted(loadData)
         <UIcon name="i-lucide-loader-2" class="size-5 animate-spin text-muted" />
       </div>
 
-      <div v-else-if="filteredRequests.length === 0" class="text-center py-10">
+      <div v-else-if="requests.length === 0" class="text-center py-10">
         <UIcon name="i-lucide-calendar-off" class="size-8 text-muted mx-auto mb-2" />
         <p class="text-sm text-muted">
           Sem pedidos de férias.
@@ -236,7 +244,7 @@ onMounted(loadData)
 
       <div v-else class="space-y-2">
         <UCard
-          v-for="r in filteredRequests"
+          v-for="r in requests"
           :key="r.id"
           class="hover:bg-elevated/50 transition-colors"
         >
@@ -274,6 +282,10 @@ onMounted(loadData)
             </div>
           </div>
         </UCard>
+
+        <div v-if="total > limit" class="flex justify-center pt-2">
+          <UPagination v-model:page="page" :total="total" :items-per-page="limit" />
+        </div>
       </div>
   </div>
 
