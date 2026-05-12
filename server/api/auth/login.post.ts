@@ -43,7 +43,7 @@ export default defineEventHandler(async (event: H3Event) => {
     if (user.status === 2) {
       throw createError({
         statusCode: 401,
-        message: 'Conta não ativada. Verifique o seu email para definir a sua password.'
+        message: 'Conta não ativada. Verifica o teu email para definires a tua password.'
       })
     }
 

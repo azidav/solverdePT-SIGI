@@ -106,7 +106,7 @@ export async function sendVacationPendingApprovalEmail(
   approvers: { email: string, name: string }[],
   opts: { employeeName: string, startDate: string, endDate: string, daysCount: number, requestUrl: string, levelName: string }
 ): Promise<void> {
-  const subject = `Pedido de férias aguarda a sua aprovação — ${opts.employeeName}`
+  const subject = `Pedido de férias aguarda a tua aprovação — ${opts.employeeName}`
   const html = `
     <div style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;padding:24px;">
       <h2 style="color:#00C16A;">Pedido de Férias para Aprovação</h2>
@@ -133,12 +133,12 @@ export async function sendVacationApprovedEmail(
   to: string, name: string,
   opts: { startDate: string, endDate: string, daysCount: number, requestUrl: string }
 ): Promise<void> {
-  const subject = 'O seu pedido de férias foi aprovado! ✅'
+  const subject = 'O teu pedido de férias foi aprovado! ✅'
   const html = `
     <div style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;padding:24px;">
       <h2 style="color:#00C16A;">Pedido de Férias Aprovado</h2>
       <p>Olá <strong>${name}</strong>,</p>
-      <p>O seu pedido de férias foi <strong>aprovado</strong>.</p>
+      <p>O teu pedido de férias foi <strong>aprovado</strong>.</p>
       <div style="background:#f0fdf4;border-radius:8px;padding:16px;margin:16px 0;border:1px solid #bbf7d0;">
         <p style="margin:4px 0;"><strong>Período:</strong> ${opts.startDate} → ${opts.endDate}</p>
         <p style="margin:4px 0;"><strong>Dias úteis:</strong> ${opts.daysCount}</p>
@@ -155,12 +155,12 @@ export async function sendVacationRejectedEmail(
   to: string, name: string,
   opts: { startDate: string, endDate: string, comment: string | undefined, requestUrl: string }
 ): Promise<void> {
-  const subject = 'O seu pedido de férias foi rejeitado'
+  const subject = 'O teu pedido de férias foi rejeitado'
   const html = `
     <div style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;padding:24px;">
       <h2 style="color:#ef4444;">Pedido de Férias Rejeitado</h2>
       <p>Olá <strong>${name}</strong>,</p>
-      <p>O seu pedido de férias foi <strong>rejeitado</strong>.</p>
+      <p>O teu pedido de férias foi <strong>rejeitado</strong>.</p>
       <div style="background:#fef2f2;border-radius:8px;padding:16px;margin:16px 0;border:1px solid #fecaca;">
         <p style="margin:4px 0;"><strong>Período:</strong> ${opts.startDate} → ${opts.endDate}</p>
         ${opts.comment ? `<p style="margin:8px 0 4px;"><strong>Motivo:</strong> ${opts.comment}</p>` : ''}
@@ -186,7 +186,7 @@ export async function sendVacationAutoApprovedNotificationEmail(
         <p style="margin:4px 0;"><strong>Período:</strong> ${opts.startDate} → ${opts.endDate}</p>
         <p style="margin:4px 0;"><strong>Dias:</strong> ${opts.daysCount}</p>
       </div>
-      <p style="color:#6b7280;font-size:13px;">Este pedido não requer ação da sua parte — é apenas uma notificação informativa.</p>
+      <p style="color:#6b7280;font-size:13px;">Este pedido não requer ação da tua parte — é apenas uma notificação informativa.</p>
       <a href="${opts.requestUrl}" style="display:inline-block;background:#6b7280;color:white;padding:10px 24px;border-radius:8px;text-decoration:none;font-weight:bold;margin:12px 0;">
         Ver Pedido
       </a>
@@ -233,15 +233,15 @@ export async function sendAccountActivationEmail(
   username: string,
   activationUrl: string
 ): Promise<boolean> {
-  const subject = 'Ative a sua conta'
+  const subject = 'Ativa a tua conta'
   const html = `
     <div style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;padding:24px;">
       <h2 style="color:#00C16A;">Bem-vindo(a), ${name}!</h2>
-      <p>A sua conta foi criada com sucesso. Para aceder ao sistema, precisa de definir a sua password.</p>
+      <p>A tua conta foi criada com sucesso. Para acederes ao sistema, precisas de definir a tua password.</p>
       <div style="background:#f5f5f5;border-radius:8px;padding:16px;margin:16px 0;">
         <p style="margin:4px 0;"><strong>Username:</strong> ${username}</p>
       </div>
-      <p>Clique no botão abaixo para definir a sua password e ativar a conta:</p>
+      <p>Clica no botão abaixo para definires a tua password e ativares a conta:</p>
       <a href="${activationUrl}"
         style="display:inline-block;background:#00C16A;color:white;padding:12px 28px;border-radius:8px;text-decoration:none;font-weight:bold;margin:16px 0;">
         Definir Password

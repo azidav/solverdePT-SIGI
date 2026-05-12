@@ -491,7 +491,7 @@ onMounted(async () => {
           </UFormField>
         </div>
 
-        <UFormField v-if="!isAuthenticated" label="O seu nome" name="guest_name" required>
+        <UFormField v-if="!isAuthenticated" label="O teu nome" name="guest_name" required>
           <UInput
             v-model="form.guest_name"
             placeholder="Nome para identificação"

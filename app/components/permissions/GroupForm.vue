@@ -60,7 +60,7 @@ const moduleIcons: Record<string, string> = {
 }
 
 const permissionInfoMap: Record<string, string> = {
-  'VACATION:VIEW_OWN':       'Pode ver os seus próprios pedidos de férias e o seu saldo.',
+  'VACATION:VIEW_OWN':       'Pode ver os teus próprios pedidos de férias e o teu saldo.',
   'VACATION:VIEW_TEAM':      'Pode ver os pedidos de férias de todos os colaboradores na página de administração.',
   'VACATION:VIEW_ALL_TEAM':  'Pode ver todos os níveis no calendário da equipa, sem restrições de hierarquia.',
   'VACATION:VIEW_LEVELS':    'Pode aceder à página de gestão dos níveis de aprovação.',

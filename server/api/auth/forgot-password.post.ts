@@ -34,8 +34,8 @@ export default defineEventHandler(async (event) => {
         <div style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;padding:24px;">
           <h2 style="color:#00C16A;">Recuperação de Password</h2>
           <p>Olá <strong>${user.name}</strong>,</p>
-          <p>Recebemos um pedido para redefinir a password da sua conta.</p>
-          <p>Clique no botão abaixo para definir uma nova password:</p>
+          <p>Recebemos um pedido para redefinir a password da tua conta.</p>
+          <p>Clica no botão abaixo para definires uma nova password:</p>
           <a href="${resetUrl}"
             style="display:inline-block;background:#00C16A;color:white;padding:12px 28px;border-radius:8px;text-decoration:none;font-weight:bold;margin:16px 0;">
             Redefinir Password

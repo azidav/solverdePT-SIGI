@@ -1,4 +1,9 @@
 <script setup lang="ts">
+import type { TableColumn } from '@nuxt/ui'
+
+const UButton = resolveComponent('UButton')
+const UBadge = resolveComponent('UBadge')
+
 const props = defineProps<{ enabled: boolean }>()
 
 interface RoomMapping {
@@ -50,10 +55,10 @@ async function loadMappings() {
   loadingMappings.value = true
   try {
     const [m, r] = await Promise.all([
-      useApiFetch<RoomMapping[]>('/api/msgraph/room-mappings'),
-      useApiFetch<Room[]>('/api/meeting-rooms?all=true')
+      useApiFetch('/api/msgraph/room-mappings'),
+      useApiFetch('/api/meeting-rooms?all=true')
     ])
-    mappings.value = m as RoomMapping[]
+    mappings.value = (m as RoomMapping[]) || []
     rooms.value = (r as Room[]) || []
   } catch {
     toast.add({ title: 'Erro', description: 'Erro ao carregar mapeamentos', color: 'error' })
@@ -66,14 +71,14 @@ async function addMapping() {
   if (!newMappingRoomId.value || !newMappingEmail.value.trim()) return
   addingMapping.value = true
   try {
-    const m = await useApiFetch<RoomMapping>('/api/msgraph/room-mappings', {
+    await useApiFetch('/api/msgraph/room-mappings', {
       method: 'POST',
       body: { room_id: newMappingRoomId.value, resource_email: newMappingEmail.value.trim() }
     })
-    mappings.value.push(m as RoomMapping)
     newMappingRoomId.value = null
     newMappingEmail.value = ''
     toast.add({ title: 'Mapeamento criado', color: 'success' })
+    await loadMappings()
   } catch (err: any) {
     toast.add({ title: 'Erro', description: err?.data?.message || 'Erro ao criar mapeamento', color: 'error' })
   } finally {
@@ -100,7 +105,7 @@ const renewing = ref<number | null>(null)
 async function loadSubscriptions() {
   loadingSubscriptions.value = true
   try {
-    subscriptions.value = await useApiFetch<Subscription[]>('/api/msgraph/subscriptions') as Subscription[]
+    subscriptions.value = (await useApiFetch('/api/msgraph/subscriptions')) as Subscription[]
   } catch {
     toast.add({ title: 'Erro', description: 'Erro ao carregar subscrições', color: 'error' })
   } finally {
@@ -127,7 +132,7 @@ async function subscribe(mapping: RoomMapping) {
 async function renewSubscription(sub: Subscription) {
   renewing.value = sub.id
   try {
-    const updated = await useApiFetch<Subscription>(`/api/msgraph/subscriptions/${sub.id}/renew`, { method: 'POST' })
+    const updated = await useApiFetch(`/api/msgraph/subscriptions/${sub.id}/renew`, { method: 'POST' })
     const idx = subscriptions.value.findIndex(s => s.id === sub.id)
     if (idx !== -1) subscriptions.value[idx] = updated as Subscription
     toast.add({ title: 'Subscrição renovada', color: 'success' })
@@ -180,6 +185,52 @@ const mockPayload = `{
 }`
 
 const showMock = ref(false)
+
+// ─── Table column definitions ──────────────────────────────────
+const mappingColumns = computed((): TableColumn<RoomMapping>[] => [
+  { accessorKey: 'room_name', header: 'Sala' },
+  { accessorKey: 'resource_email', header: 'Email de Recurso Outlook' },
+  {
+    id: 'actions',
+    header: '',
+    cell: ({ row }) =>
+      h('div', { class: 'flex justify-end gap-2' }, [
+        !mappingHasSubscription(row.original)
+          ? h(UButton, { label: 'Subscrever webhook', icon: 'i-lucide-webhook', size: 'xs', color: 'primary', variant: 'soft', loading: subscribing.value === row.original.id, onClick: () => subscribe(row.original) })
+          : h(UBadge, { label: 'Subscrito', color: 'success', variant: 'soft', size: 'xs' }),
+        h(UButton, { icon: 'i-lucide-trash-2', size: 'xs', color: 'error', variant: 'ghost', onClick: () => deleteMapping(row.original.id) })
+      ])
+  }
+])
+
+const subscriptionColumns = computed((): TableColumn<Subscription>[] => [
+  { accessorKey: 'room_name', header: 'Sala' },
+  { accessorKey: 'resource_email', header: 'Email de Recurso' },
+  {
+    accessorKey: 'expiration_datetime',
+    header: 'Expira em',
+    cell: ({ row }) => {
+      const status = expiryStatus(row.original.expiration_datetime)
+      return h('div', { class: 'flex items-center gap-2' }, [
+        h(UBadge, {
+          label: new Date(row.original.expiration_datetime).toLocaleString('pt-PT'),
+          color: status === 'expired' ? 'error' : status === 'soon' ? 'warning' : 'success',
+          variant: 'soft',
+          size: 'xs'
+        })
+      ])
+    }
+  },
+  {
+    id: 'actions',
+    header: '',
+    cell: ({ row }) =>
+      h('div', { class: 'flex justify-end gap-2' }, [
+        h(UButton, { label: 'Renovar', icon: 'i-lucide-refresh-cw', size: 'xs', color: 'primary', variant: 'soft', loading: renewing.value === row.original.id, onClick: () => renewSubscription(row.original) }),
+        h(UButton, { icon: 'i-lucide-trash-2', size: 'xs', color: 'error', variant: 'ghost', onClick: () => deleteSubscription(row.original) })
+      ])
+  }
+])
 
 onMounted(() => {
   loadMappings()
@@ -240,36 +291,9 @@ onMounted(() => {
         <UTable
           v-if="mappings.length"
           :data="mappings"
-          :columns="[
-            { key: 'room_name', label: 'Sala' },
-            { key: 'resource_email', label: 'Email de Recurso Outlook' },
-            { key: 'actions', label: '' }
-          ]"
+          :columns="mappingColumns"
           class="mb-4"
-        >
-          <template #actions-data="{ row }">
-            <div class="flex justify-end gap-2">
-              <UButton
-                v-if="!mappingHasSubscription(row)"
-                label="Subscrever webhook"
-                icon="i-lucide-webhook"
-                size="xs"
-                color="primary"
-                variant="soft"
-                :loading="subscribing === row.id"
-                @click="subscribe(row)"
-              />
-              <UBadge v-else label="Subscrito" color="success" variant="soft" size="xs" />
-              <UButton
-                icon="i-lucide-trash-2"
-                size="xs"
-                color="error"
-                variant="ghost"
-                @click="deleteMapping(row.id)"
-              />
-            </div>
-          </template>
-        </UTable>
+        />
 
         <p v-else class="text-sm text-(--ui-text-muted) mb-4">Nenhum mapeamento configurado.</p>
 
@@ -315,44 +339,8 @@ onMounted(() => {
         <UTable
           v-if="subscriptions.length"
           :data="subscriptions"
-          :columns="[
-            { key: 'room_name', label: 'Sala' },
-            { key: 'resource_email', label: 'Email de Recurso' },
-            { key: 'expiration_datetime', label: 'Expira em' },
-            { key: 'actions', label: '' }
-          ]"
-        >
-          <template #expiration_datetime-data="{ row }">
-            <div class="flex items-center gap-2">
-              <UBadge
-                :label="new Date(row.expiration_datetime).toLocaleString('pt-PT')"
-                :color="expiryStatus(row.expiration_datetime) === 'expired' ? 'error' : expiryStatus(row.expiration_datetime) === 'soon' ? 'warning' : 'success'"
-                variant="soft"
-                size="xs"
-              />
-            </div>
-          </template>
-          <template #actions-data="{ row }">
-            <div class="flex justify-end gap-2">
-              <UButton
-                label="Renovar"
-                icon="i-lucide-refresh-cw"
-                size="xs"
-                color="primary"
-                variant="soft"
-                :loading="renewing === row.id"
-                @click="renewSubscription(row)"
-              />
-              <UButton
-                icon="i-lucide-trash-2"
-                size="xs"
-                color="error"
-                variant="ghost"
-                @click="deleteSubscription(row)"
-              />
-            </div>
-          </template>
-        </UTable>
+          :columns="subscriptionColumns"
+        />
 
         <p v-else class="text-sm text-(--ui-text-muted)">
           Sem subscrições activas. Clique em <strong>Subscrever webhook</strong> junto a um mapeamento para activar a sincronização.

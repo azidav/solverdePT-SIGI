@@ -1,10 +1,11 @@
 import { useAuth } from './useAuth'
 
-export async function useApiFetch(url: string, options?: any) {
+export async function useApiFetch(url: string, options?: Record<string, unknown>) {
   try {
     return await $fetch(url, options)
-  } catch (e: any) {
-    const statusCode = e?.status ?? e?.statusCode ?? e?.response?.status
+  } catch (e: unknown) {
+    const err = e as { status?: number, statusCode?: number, response?: { status?: number } }
+    const statusCode = err?.status ?? err?.statusCode ?? err?.response?.status
     const route = useRoute()
     const authPages = ['/login', '/register', '/forgot-password', '/reset-password']
 
@@ -12,9 +13,9 @@ export async function useApiFetch(url: string, options?: any) {
       const toast = useToast()
       toast.add({
         title: 'Sessão expirada',
-        description: 'A sua sessão expirou. Por favor, faça login novamente.',
+        description: 'A tua sessão expirou. Faz login novamente.',
         color: 'error',
-        icon: 'i-lucide-log-out',
+        icon: 'i-lucide-log-out'
       })
       useAuth().logout()
     }
