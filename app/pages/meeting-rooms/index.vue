@@ -73,26 +73,54 @@ const allTimeSlots = computed(() => {
   return slots
 })
 
-// For today: filter out time slots that have already passed
+function timeStrToMin(t: string): number {
+  const [h, m] = t.split(':').map(Number)
+  return (h ?? 0) * 60 + (m ?? 0)
+}
+
+// Reservations loaded for the date currently open in the modal (may differ from selectedDate)
+const modalReservations = ref<Reservation[]>([])
+
 const startTimeSlots = computed(() => {
-  if (form.date !== todayStr) return allTimeSlots.value
-  const now = new Date()
-  const currentMinutes = now.getHours() * 60 + now.getMinutes()
-  const interval = roomsConfig.value.slot_duration || 30
-  const nextSlot = Math.ceil(currentMinutes / interval) * interval
-  return allTimeSlots.value.filter((s) => {
-    const [sh, sm] = s.value.split(':').map(Number)
-    return sh * 60 + sm >= nextSlot
+  let slots = allTimeSlots.value
+
+  // Filter past slots when booking for today
+  if (form.date === todayStr) {
+    const now = new Date()
+    const currentMinutes = now.getHours() * 60 + now.getMinutes()
+    const interval = roomsConfig.value.slot_duration || 30
+    const nextSlot = Math.ceil(currentMinutes / interval) * interval
+    slots = slots.filter(s => timeStrToMin(s.value) >= nextSlot)
+  }
+
+  // Filter out slots that fall inside an existing reservation for this room
+  const roomRes = modalReservations.value.filter(r => r.room_id === selectedRoom.value?.id)
+  return slots.filter((slot) => {
+    const slotMin = timeStrToMin(slot.value)
+    return !roomRes.some((r) => {
+      const rStartMin = new Date(r.start_time).getHours() * 60 + new Date(r.start_time).getMinutes()
+      const rEndMin = new Date(r.end_time).getHours() * 60 + new Date(r.end_time).getMinutes()
+      return slotMin >= rStartMin && slotMin < rEndMin
+    })
   })
 })
 
 const endTimeSlots = computed(() => {
   if (!form.start_time) return allTimeSlots.value
-  const [h, m] = form.start_time.split(':').map(Number)
-  const minEnd = h * 60 + m + (roomsConfig.value.slot_duration || 30)
+  const startMin = timeStrToMin(form.start_time)
+  const minEnd = startMin + (roomsConfig.value.slot_duration || 30)
+
+  // End time cannot extend into the next reservation — find its start as the hard cap
+  const roomRes = modalReservations.value.filter(r => r.room_id === selectedRoom.value?.id)
+  let maxEndMin = Infinity
+  roomRes.forEach((r) => {
+    const rStartMin = new Date(r.start_time).getHours() * 60 + new Date(r.start_time).getMinutes()
+    if (rStartMin > startMin) maxEndMin = Math.min(maxEndMin, rStartMin)
+  })
+
   return allTimeSlots.value.filter((s) => {
-    const [sh, sm] = s.value.split(':').map(Number)
-    return sh * 60 + sm >= minEnd
+    const slotMin = timeStrToMin(s.value)
+    return slotMin >= minEnd && slotMin <= maxEndMin
   })
 })
 
@@ -120,6 +148,11 @@ const myTokenIds = ref<number[]>([])
 const selectedDate = ref(localDateStr())
 const showModal = ref(false)
 const saving = ref(false)
+
+// Sync modalReservations when the modal opens so slot filtering is accurate
+watch(showModal, (open) => {
+  if (open) modalReservations.value = [...reservations.value]
+})
 
 const schema = z.object({
   meeting_title: z.string().min(2, 'Título obrigatório'),
@@ -197,8 +230,13 @@ function openBooking() {
   showModal.value = true
 }
 
-// When date changes, clear times that are now invalid
-watch(() => form.date, () => {
+// When the modal date changes: reload reservations for that date and clear invalid times
+watch(() => form.date, async (newDate) => {
+  if (newDate) {
+    try {
+      modalReservations.value = await $fetch(`/api/room-reservations?date=${newDate}`) as Reservation[]
+    } catch { /* silent — slot filtering stays best-effort; backend always validates */ }
+  }
   if (form.start_time) {
     const valid = startTimeSlots.value.some(s => s.value === form.start_time)
     if (!valid) {

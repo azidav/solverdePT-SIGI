@@ -60,3 +60,39 @@ INSERT INTO config_variables (section, key, label, value, is_secret, description
   ('email', 'from_email',    'Email de Origem',     '',      false, 'Endereço de email do remetente',                    'email'),
   ('email', 'from_name',     'Nome de Origem',      'Sistema', false, 'Nome que aparece como remetente',                 'text')
 ON CONFLICT (key) DO NOTHING;
+
+-- Microsoft Graph Integration (bidirectional Outlook sync)
+ALTER TABLE room_reservations ADD COLUMN IF NOT EXISTS ical_uid TEXT;
+ALTER TABLE room_reservations ADD COLUMN IF NOT EXISTS change_key TEXT;
+ALTER TABLE room_reservations ADD COLUMN IF NOT EXISTS graph_event_id TEXT;
+ALTER TABLE room_reservations ADD COLUMN IF NOT EXISTS source VARCHAR(20) DEFAULT 'platform';
+
+CREATE UNIQUE INDEX IF NOT EXISTS idx_room_reservations_ical_uid
+  ON room_reservations(ical_uid) WHERE ical_uid IS NOT NULL;
+
+-- Maps internal room IDs to Outlook resource mailbox addresses
+CREATE TABLE IF NOT EXISTS room_graph_mappings (
+  id SERIAL PRIMARY KEY,
+  room_id INT NOT NULL REFERENCES meeting_rooms(id) ON DELETE CASCADE,
+  resource_email VARCHAR(255) NOT NULL UNIQUE,
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- Tracks active Microsoft Graph webhook subscriptions
+CREATE TABLE IF NOT EXISTS msgraph_subscriptions (
+  id SERIAL PRIMARY KEY,
+  subscription_id VARCHAR(255) NOT NULL UNIQUE,
+  room_id INT REFERENCES meeting_rooms(id) ON DELETE SET NULL,
+  resource_email VARCHAR(255) NOT NULL,
+  expiration_datetime TIMESTAMPTZ NOT NULL,
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+INSERT INTO config_variables (section, key, label, value, is_secret, description, input_type) VALUES
+  ('msgraph', 'msgraph_enabled',        'Integração Ativa',       'false', false, 'Activar sincronização bidirecional com Microsoft 365',              'checkbox'),
+  ('msgraph', 'msgraph_tenant_id',      'Tenant ID (Azure AD)',   '',      false, 'ID do tenant do Azure Active Directory (Directory ID)',             'text'),
+  ('msgraph', 'msgraph_client_id',      'Client ID (App ID)',     '',      false, 'ID da aplicação registada no Azure AD (Application ID)',            'text'),
+  ('msgraph', 'msgraph_client_secret',  'Client Secret',          '',      true,  'Segredo da aplicação — gerar em Azure AD → Certificates & secrets', 'password'),
+  ('msgraph', 'msgraph_webhook_secret', 'Webhook clientState',    '',      false, 'Valor secreto para validar notificações recebidas do Graph',        'text')
+ON CONFLICT (key) DO NOTHING;
