@@ -19,6 +19,7 @@
     "@types/jsonwebtoken": "^9.0.10",
     "@unovis/ts": "^1.6.1",
     "@unovis/vue": "^1.6.1",
+    "@vite-pwa/nuxt": "^1.1.1",
     "@vueuse/nuxt": "^13.9.0",
     "bcrypt": "^6.0.0",
     "date-fns": "^4.1.0",

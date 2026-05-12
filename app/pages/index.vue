@@ -122,6 +122,12 @@ function isToday(iso: string) {
 }
 
 onMounted(() => {
+  const welcomeToast = useState<string | null>('welcome-toast', () => null)
+  if (welcomeToast.value) {
+    useToast().add({ title: 'Sucesso', description: welcomeToast.value, color: 'success' })
+    welcomeToast.value = null
+  }
+
   loadPendingApprovals()
   loadVacations()
   loadReservations()
