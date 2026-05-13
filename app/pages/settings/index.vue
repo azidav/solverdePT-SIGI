@@ -47,12 +47,16 @@ const standardSections = computed(() => {
   return result
 })
 
+const HIDDEN_SECTIONS = ['msgraph']
+
 const accordionItems = computed(() => [
-  ...Object.keys(sections.value).map(section => ({
-    label: SECTION_META[section]?.label || section,
-    icon: SECTION_META[section]?.icon || 'i-lucide-settings-2',
-    slot: section
-  })),
+  ...Object.keys(sections.value)
+    .filter(section => !HIDDEN_SECTIONS.includes(section))
+    .map(section => ({
+      label: SECTION_META[section]?.label || section,
+      icon: SECTION_META[section]?.icon || 'i-lucide-settings-2',
+      slot: section
+    })),
   ...EXTRA_SECTIONS
 ])
 
