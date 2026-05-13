@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import type { TableColumn } from '@nuxt/ui'
 
-definePageMeta({ title: 'Audit Logs' })
+definePageMeta({ title: 'Registos de Auditoria' })
 
 const UBadge = resolveComponent('UBadge')
 
@@ -157,7 +157,7 @@ onMounted(() => fetchLogs())
 <template>
   <UDashboardPanel id="audit-logs">
     <template #header>
-      <UDashboardNavbar title="Audit Logs">
+      <UDashboardNavbar title="Audit Logs" icon="i-lucide-scroll-text">
         <template #leading>
           <UDashboardSidebarCollapse />
         </template>

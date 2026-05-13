@@ -1,5 +1,5 @@
 <script setup lang="ts">
-definePageMeta({ title: 'Variáveis de Configuração' })
+definePageMeta({ title: 'Configurações' })
 
 interface ConfigVar {
   id: number
@@ -15,8 +15,13 @@ interface ConfigVar {
 const SECTION_META: Record<string, { label: string, icon: string }> = {
   email: { label: 'Configurações de Email', icon: 'i-lucide-mail' },
   rooms: { label: 'Salas de Reunião', icon: 'i-lucide-door-open' },
+  ferias: { label: 'Férias', icon: 'i-lucide-calendar-days' },
   msgraph: { label: 'Integração Microsoft 365', icon: 'i-simple-icons-microsoftoutlook' }
 }
+
+const EXTRA_SECTIONS = [
+  { slot: 'vacation_types', label: 'Tipos de Ausência', icon: 'i-lucide-tag' }
+]
 
 const toast = useToast()
 const loading = ref(true)
@@ -42,13 +47,14 @@ const standardSections = computed(() => {
   return result
 })
 
-const accordionItems = computed(() =>
-  Object.keys(sections.value).map(section => ({
+const accordionItems = computed(() => [
+  ...Object.keys(sections.value).map(section => ({
     label: SECTION_META[section]?.label || section,
     icon: SECTION_META[section]?.icon || 'i-lucide-settings-2',
     slot: section
-  }))
-)
+  })),
+  ...EXTRA_SECTIONS
+])
 
 async function loadConfig() {
   loading.value = true
@@ -88,7 +94,13 @@ onMounted(loadConfig)
   <div v-if="loading" class="flex items-center justify-center py-16">
     <UIcon name="i-lucide-loader-2" class="size-6 animate-spin text-primary" />
   </div>
-  <UAccordion v-else :items="accordionItems" :default-value="accordionItems[0]?.slot">
+
+  <UAccordion
+    v-else
+    :items="accordionItems"
+    :default-value="accordionItems[0]?.slot"
+    class="p-4"
+  >
     <template v-for="(vars, section) in standardSections" :key="section" #[section]>
       <div class="space-y-5 px-1 pb-4 pt-2">
         <div v-for="v in vars" :key="v.key">
@@ -125,6 +137,13 @@ onMounted(loadConfig)
         </div>
       </div>
     </template>
+
+    <template #vacation_types>
+      <div class="px-1 pb-4 pt-2">
+        <SettingsVacationTypeManager />
+      </div>
+    </template>
+
     <template #msgraph>
       <div class="space-y-6 px-1 pb-4 pt-2">
         <div class="space-y-5">

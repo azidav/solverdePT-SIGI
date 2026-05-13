@@ -1,13 +1,13 @@
 import sql from '~~/server/utils/db'
 import { getUserFromEvent } from '~~/server/utils/auth'
+import { hasUserPermission } from '~~/server/utils/authorize'
 
 export default defineEventHandler(async (event) => {
   const currentUser = await getUserFromEvent(event)
   if (!currentUser) throw createError({ statusCode: 401, message: 'Unauthorized' })
 
-  if (currentUser.permission > 0) {
-    throw createError({ statusCode: 403, message: 'Forbidden - Admin only' })
-  }
+  const canChange = await hasUserPermission(event, ['SETTINGS:CHANGE'])
+  if (!canChange) throw createError({ statusCode: 403, message: 'Sem permissão para alterar configurações' })
 
   const updates = await readBody(event) as { key: string; value: string }[]
 

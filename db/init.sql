@@ -83,6 +83,7 @@ VALUES
   ('VACATION:VIEW_TEAM', 'Ver férias da equipa', 'VACATION', 'VIEW_TEAM'),
   ('VACATION:CREATE', 'Criar pedido de férias', 'VACATION', 'CREATE'),
   ('VACATION:APPROVE', 'Aprovar pedidos de férias', 'VACATION', 'APPROVE'),
+
   ('VACATION:CONFIG_PERIODS', 'Configurar períodos globais de férias', 'VACATION', 'CONFIG_PERIODS'),
 
   -- EQUIPMENT (Equipamentos)

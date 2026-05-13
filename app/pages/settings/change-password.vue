@@ -33,11 +33,9 @@ async function onSubmit(event: FormSubmitEvent<Schema>) {
         newPassword: event.data.newPassword
       }
     })
-
     state.currentPassword = ''
     state.newPassword = ''
     state.confirmPassword = ''
-
     toast.success('Password alterada com sucesso', 'Sucesso')
   } catch (err: unknown) {
     const msg = ((err as any)?.data?.message) || 'Erro ao alterar password'
@@ -49,30 +47,63 @@ async function onSubmit(event: FormSubmitEvent<Schema>) {
 </script>
 
 <template>
-  <div class="space-y-4">
-    <div>
-      <h2 class="text-base font-semibold">Mudar Password</h2>
-      <p class="text-sm text-muted mt-1">Atualiza a tua password de acesso.</p>
-    </div>
-
+  <div class="p-4 max-w-lg">
     <UCard>
-      <UForm :schema="schema" :state="state" class="space-y-4" @submit="onSubmit">
-        <UFormField label="Password atual" name="currentPassword" required>
-          <UInput v-model="state.currentPassword" type="password" placeholder="••••••••" class="w-1/2" />
+      <UForm
+        :schema="schema"
+        :state="state"
+        class="space-y-4"
+        @submit="onSubmit"
+      >
+        <UFormField
+          label="Password atual"
+          name="currentPassword"
+          required
+        >
+          <UInput
+            v-model="state.currentPassword"
+            type="password"
+            placeholder="••••••••"
+            class="w-full"
+          />
         </UFormField>
 
         <UDivider />
 
-        <UFormField label="Nova password" name="newPassword" required>
-          <UInput v-model="state.newPassword" type="password" placeholder="••••••••" class="w-1/2" />
+        <UFormField
+          label="Nova password"
+          name="newPassword"
+          required
+        >
+          <UInput
+            v-model="state.newPassword"
+            type="password"
+            placeholder="••••••••"
+            class="w-full"
+          />
         </UFormField>
 
-        <UFormField label="Confirmar nova password" name="confirmPassword" required>
-          <UInput v-model="state.confirmPassword" type="password" placeholder="••••••••" class="w-1/2" />
+        <UFormField
+          label="Confirmar nova password"
+          name="confirmPassword"
+          required
+        >
+          <UInput
+            v-model="state.confirmPassword"
+            type="password"
+            placeholder="••••••••"
+            class="w-full"
+          />
         </UFormField>
 
         <div class="flex justify-end pt-2">
-          <UButton type="submit" label="Guardar" color="primary" icon="i-lucide-save" :loading="loading" />
+          <UButton
+            type="submit"
+            label="Guardar"
+            color="primary"
+            icon="i-lucide-save"
+            :loading="loading"
+          />
         </div>
       </UForm>
     </UCard>

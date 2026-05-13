@@ -2,7 +2,7 @@
 import * as z from 'zod'
 import type { FormSubmitEvent } from '@nuxt/ui'
 
-definePageMeta({ layout: 'auth' })
+definePageMeta({ layout: 'auth', title: 'Recuperar Password' })
 
 const toast = useAppToast()
 const loading = ref(false)

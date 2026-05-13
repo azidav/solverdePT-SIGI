@@ -34,6 +34,8 @@ export default defineEventHandler(async (event) => {
     if (body.email !== undefined) updateData.email = body.email
     if (body.department !== undefined) updateData.department = body.department
     if (body.job_title !== undefined) updateData.job_title = body.job_title
+    if (body.birthday !== undefined) updateData.birthday = body.birthday || null
+    if (body.hire_date !== undefined) updateData.hire_date = body.hire_date || null
     if (body.permission !== undefined) updateData.permission = body.permission
     if (body.status !== undefined) {
       // If activating (status → 1) but user has no password, keep as pending (2)

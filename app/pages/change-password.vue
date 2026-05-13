@@ -2,7 +2,7 @@
 import * as z from 'zod'
 import type { FormSubmitEvent } from '@nuxt/ui'
 
-definePageMeta({ layout: 'auth' })
+definePageMeta({ layout: 'auth', title: 'Alterar Password' })
 
 const auth = useAuth()
 const router = useRouter()
@@ -57,8 +57,8 @@ async function onSubmit(event: FormSubmitEvent<Schema>) {
         <UIcon name="i-lucide-lock-keyhole" class="size-10 text-primary mb-2" />
         <h1 class="text-xl font-semibold">Definir password pessoal</h1>
         <p class="text-sm text-muted">
-          Por segurança, tem de definir uma nova password antes de continuar.<br>
-          Encontra a sua password temporária no email que recebeu.
+          Por segurança, tens de definir uma nova password antes de continuar.<br>
+          Encontra a tua password temporária no email que recebeste.
         </p>
       </div>
 

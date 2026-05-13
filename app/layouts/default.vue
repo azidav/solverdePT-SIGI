@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import type { NavigationMenuItem } from '@nuxt/ui'
 
-const { can, canManageRoles } = useRbac()
+const { can, canManageRoles, canApproveVacation, canVacation } = useRbac()
 
 const open = ref(false)
 
@@ -14,6 +14,70 @@ const links = computed(() => {
     to: '/',
     onSelect: () => { open.value = false }
   })
+
+  if (canVacation.value) {
+    const hasExpandedMenu = canApproveVacation.value || can('VACATION:VIEW_LEVELS') || can('VACATION:CREATE')
+
+    if (hasExpandedMenu) {
+      const feriaChildren: NavigationMenuItem[] = []
+
+      if (can('VACATION:CREATE')) {
+        feriaChildren.push({
+          label: 'Novo Pedido',
+          icon: 'i-lucide-plus-circle',
+          to: '/ferias/nova',
+          onSelect: () => { open.value = false }
+        })
+        feriaChildren.push({
+          label: 'Os Meus Pedidos',
+          icon: 'i-lucide-calendar-days',
+          to: '/ferias',
+          exact: true,
+          onSelect: () => { open.value = false }
+        })
+      }
+
+      if (canApproveVacation.value) {
+        feriaChildren.push({
+          label: 'Calendário da Equipa',
+          icon: 'i-lucide-users',
+          to: '/ferias/equipa',
+          onSelect: () => { open.value = false }
+        })
+        feriaChildren.push({
+          label: 'Administração',
+          icon: 'i-lucide-shield-check',
+          to: '/ferias/admin',
+          onSelect: () => { open.value = false }
+        })
+      }
+
+      if (can('VACATION:VIEW_LEVELS')) {
+        feriaChildren.push({
+          label: 'Níveis de Aprovação',
+          icon: 'i-lucide-layers',
+          to: '/ferias/levels',
+          onSelect: () => { open.value = false }
+        })
+      }
+
+      mainLinks.push({
+        label: 'Férias',
+        icon: 'i-lucide-calendar-days',
+        to: '/ferias',
+        defaultOpen: true,
+        type: 'trigger',
+        children: feriaChildren
+      })
+    } else {
+      mainLinks.push({
+        label: 'Férias',
+        icon: 'i-lucide-palm-tree',
+        to: '/ferias',
+        onSelect: () => { open.value = false }
+      })
+    }
+  }
 
   if (can('ROOMS:VIEW')) {
     if (can('ROOMS:MANAGE')) {
@@ -59,7 +123,7 @@ const links = computed(() => {
 
     if (canManageRoles.value) {
       settingsChildren.push({
-        label: 'Roles & Permissões',
+        label: 'Grupos & Utilizadores',
         to: '/permissions',
         onSelect: () => { open.value = false }
       })

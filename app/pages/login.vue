@@ -1,14 +1,12 @@
 <script setup lang="ts">
 import * as z from 'zod'
 import type { FormSubmitEvent, AuthFormField } from '@nuxt/ui'
-import { useRouter } from '#imports'
 import { useAuth } from '~/composables/useAuth'
 
 const auth = useAuth()
-const router = useRouter()
 const toast = useAppToast()
 
-definePageMeta({ layout: 'auth' })
+definePageMeta({ layout: 'auth', title: 'Login' })
 
 const fields: AuthFormField[] = [{
   name: 'username',
@@ -47,10 +45,11 @@ async function onSubmit(payload: FormSubmitEvent<Schema>) {
     }
 
 
-    await router.push('/')
-
     const u = auth.user?.value ?? null
-    toast.success(`Bem-vindo/a ${u.name || u.username}`, 'Sucesso')
+    const welcomeToast = useState<string | null>('welcome-toast', () => null)
+    welcomeToast.value = `Bem-vindo/a ${u?.name || u?.username}`
+
+    await navigateTo('/')
   } catch (e: unknown) {
     isLoading.value = false
     let message = 'Invalid credentials'

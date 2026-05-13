@@ -136,21 +136,13 @@ onMounted(loadGroups)
 
 <template>
   <div class="space-y-4 pt-4">
-    <div class="flex flex-wrap items-center justify-between gap-3">
-      <UInput
-        :model-value="(groupsTable?.tableApi?.getColumn('name')?.getFilterValue() as string)"
-        class="max-w-sm"
-        icon="i-lucide-search"
-        placeholder="Pesquisar por nome..."
-        @update:model-value="groupsTable?.tableApi?.getColumn('name')?.setFilterValue($event)"
-      />
-      <UButton
-        label="Adicionar Grupo"
-        icon="i-lucide-plus"
-        color="primary"
-        @click="navigateTo('/permissions/groups/new')"
-      />
-    </div>
+    <UInput
+      :model-value="(groupsTable?.tableApi?.getColumn('name')?.getFilterValue() as string)"
+      class="max-w-sm"
+      icon="i-lucide-search"
+      placeholder="Pesquisar por nome..."
+      @update:model-value="groupsTable?.tableApi?.getColumn('name')?.setFilterValue($event)"
+    />
 
     <UTable
       ref="groupsTable"

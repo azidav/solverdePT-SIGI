@@ -4,7 +4,7 @@
 <template>
   <UDashboardPanel id="settings">
     <template #header>
-      <UDashboardNavbar title="Settings">
+      <UDashboardNavbar title="Configurações" icon="i-lucide-settings">
         <template #leading>
           <UDashboardSidebarCollapse />
         </template>

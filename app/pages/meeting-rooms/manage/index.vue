@@ -1,5 +1,5 @@
 <script setup lang="ts">
-definePageMeta({ layout: 'default' })
+definePageMeta({ layout: 'default', title: 'Gerir Salas de Reunião' })
 
 interface Room {
   id: number
@@ -92,30 +92,7 @@ onMounted(loadRooms)
 </script>
 
 <template>
-  <UDashboardPanel id="rooms-manage">
-    <template #header>
-      <UDashboardNavbar title="Gerir Salas de Reunião">
-        <template #leading>
-          <UButton
-            icon="i-lucide-arrow-left"
-            color="neutral"
-            variant="ghost"
-            @click="navigateTo('/meeting-rooms')"
-          />
-        </template>
-        <template #right>
-          <UButton
-            label="Nova Sala"
-            icon="i-lucide-plus"
-            color="primary"
-            @click="navigateTo('/meeting-rooms/manage/new')"
-          />
-        </template>
-      </UDashboardNavbar>
-    </template>
-
-    <template #body>
-      <div class="p-6 space-y-4">
+  <div class="p-6 space-y-4">
         <div v-if="loading" class="flex justify-center py-16">
           <UIcon name="i-lucide-loader-2" class="size-6 animate-spin text-primary" />
         </div>
@@ -198,9 +175,7 @@ onMounted(loadRooms)
             @click="navigateTo('/meeting-rooms/manage/new')"
           />
         </div>
-      </div>
-    </template>
-  </UDashboardPanel>
+  </div>
 
   <UModal v-model:open="showDeleteModal" title="Eliminar Sala">
     <template #body>

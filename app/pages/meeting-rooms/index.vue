@@ -2,7 +2,7 @@
 import * as z from 'zod'
 import type { FormSubmitEvent } from '@nuxt/ui'
 
-definePageMeta({ middleware: ['rooms-layout'] })
+definePageMeta({ middleware: ['rooms-layout'], title: 'Salas de Reunião' })
 
 interface Room {
   id: number
@@ -340,7 +340,7 @@ onMounted(async () => {
   <!-- AUTHENTICATED: full dashboard with sidebar -->
   <UDashboardPanel v-if="isAuthenticated" id="meeting-rooms">
     <template #header>
-      <UDashboardNavbar title="Salas de Reunião">
+      <UDashboardNavbar title="Salas de Reunião" icon="i-lucide-door-open">
         <template #leading>
           <UDashboardSidebarCollapse />
         </template>
@@ -491,7 +491,7 @@ onMounted(async () => {
           </UFormField>
         </div>
 
-        <UFormField v-if="!isAuthenticated" label="O seu nome" name="guest_name" required>
+        <UFormField v-if="!isAuthenticated" label="O teu nome" name="guest_name" required>
           <UInput
             v-model="form.guest_name"
             placeholder="Nome para identificação"

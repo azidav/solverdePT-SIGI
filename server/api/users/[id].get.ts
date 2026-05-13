@@ -11,7 +11,7 @@ export default defineEventHandler(async (event) => {
   try {
     const users = await sql`
       SELECT
-        u.id, u.username, u.name, u.email, u.department, u.job_title,
+        u.id, u.username, u.name, u.email, u.department, u.job_title, u.birthday, u.hire_date, u.employee_no,
         u.permission, u.status, u.role_id, u.created_at, u.updated_at,
         COALESCE(
           (
