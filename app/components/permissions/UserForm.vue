@@ -280,7 +280,7 @@ onMounted(() => {
           v-model="state.email"
           class="w-full"
           type="email"
-          placeholder="joao.silva@solverdept.com"
+          placeholder="joao.silva@solverde.pt"
         />
       </UFormField>
     </div>

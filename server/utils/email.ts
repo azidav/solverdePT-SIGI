@@ -40,7 +40,7 @@ async function getSmtpConfig(): Promise<SmtpConfig | null> {
 
 export async function sendEmail(to: string, subject: string, html: string): Promise<boolean> {
   // send fake email test — set to `false as boolean` to use real SMTP
-  if (true as boolean) {
+  if (false as boolean) {
     try {
       const testAccount = await nodemailer.createTestAccount()
 
@@ -82,7 +82,9 @@ export async function sendEmail(to: string, subject: string, html: string): Prom
       host: cfg.host,
       port: cfg.port,
       secure: cfg.secure,
-      auth: { user: cfg.user, pass: cfg.password }
+      requireTLS: !cfg.secure,
+      auth: { user: cfg.user, pass: cfg.password },
+      tls: { rejectUnauthorized: false }
     })
 
     await transporter.sendMail({

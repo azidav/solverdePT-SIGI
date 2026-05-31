@@ -444,14 +444,6 @@ onMounted(() => {
               </div>
             </UCard>
 
-            <UButton
-              label="Adicionar Nível"
-              icon="i-lucide-plus"
-              color="primary"
-              variant="soft"
-              class="w-full"
-              @click="openCreate"
-            />
           </div>
         </template>
 
