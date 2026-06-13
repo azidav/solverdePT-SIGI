@@ -28,3 +28,6 @@ logs
 
 #claude
 .claude
+_claude-history
+*.md
+_relatorio/
