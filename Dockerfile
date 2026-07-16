@@ -34,7 +34,7 @@ COPY . .
 
 # Construir a aplicação Nuxt em modo produção
 # Produz .output/server/index.mjs e .output/public/*
-RUN pnpm build
+RUN NODE_OPTIONS="--max-old-space-size=3072" pnpm build
 
 # ---- Stage 3: runtime ----
 FROM node:20-bookworm-slim AS runner
