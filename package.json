@@ -30,13 +30,13 @@
     "nuxt": "^4.2.0",
     "pinia": "^3.0.4",
     "postgres": "^3.4.7",
-    "tailwind": "^4.0.0",
+    "tailwindcss": "^4.0.0",
+    "@tailwindcss/vite": "^4.0.0",
     "xlsx": "^0.18.5",
     "zod": "^4.1.12"
   },
   "devDependencies": {
     "@nuxt/eslint": "^1.9.0",
-    "@nuxtjs/tailwindcss": "^6.14.0",
     "@types/nodemailer": "^8.0.0",
     "eslint": "^9.38.0",
     "typescript": "^5.9.3",
