@@ -1,0 +1,67 @@
+# ------------------------------------------------------------------------------
+# docker-compose.prod.yml — deployment de produção do SIGI
+#
+# Sobe dois serviços:
+#   - app: aplicação Nuxt 4 construída a partir do Dockerfile
+#   - db:  PostgreSQL 16 com volume persistente e schema inicial
+#
+# Uso:
+#   docker compose -f docker-compose.prod.yml --env-file .env up -d --build
+# ------------------------------------------------------------------------------
+
+services:
+  db:
+    image: postgres:16
+    container_name: sigi_postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-sigi}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD em falta no .env}
+      POSTGRES_DB: ${POSTGRES_DB:-sigi_prod}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ./db/init.sql:/docker-entrypoint-initdb.d/01-init.sql:ro
+      - ./db/update.sql:/docker-entrypoint-initdb.d/02-update.sql:ro
+    # Não exponho a porta 5432 ao exterior — o Nuxt fala com o Postgres
+    # apenas pela rede interna do compose. Se precisares de aceder por fora
+    # para debugging, descomenta a linha abaixo (não recomendado em produção).
+    # ports:
+    #   - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-sigi} -d ${POSTGRES_DB:-sigi_prod}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - sigi_net
+
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: sigi:latest
+    container_name: sigi_app
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      NODE_ENV: production
+      NUXT_HOST: 0.0.0.0
+      NUXT_PORT: 3000
+      DATABASE_URL: postgres://${POSTGRES_USER:-sigi}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB:-sigi_prod}
+      JWT_SECRET: ${JWT_SECRET:?JWT_SECRET em falta no .env}
+      NUXT_PUBLIC_BASE_URL: ${NUXT_PUBLIC_BASE_URL:-http://localhost:3000}
+    ports:
+      - "${APP_PORT:-3000}:3000"
+    networks:
+      - sigi_net
+
+volumes:
+  pgdata:
+    name: sigi_pgdata
+
+networks:
+  sigi_net:
+    name: sigi_net
+    driver: bridge
