@@ -1,0 +1,54 @@
+# Não copiar para o build context (economiza tempo e evita fugas de segredos)
+
+# Dependências (vão ser reinstaladas dentro do contentor)
+node_modules
+.pnpm-store
+
+# Output de builds anteriores
+.output
+.nuxt
+dist
+
+# Ambientes locais
+.env
+.env.local
+.env.development
+.env.*.local
+
+# Ficheiros de sessão / cache
+.cache
+tmp
+
+# Git
+.git
+.gitignore
+.github
+
+# IDEs
+.vscode
+.idea
+*.swp
+*.swo
+
+# Ficheiros de sistema
+.DS_Store
+Thumbs.db
+
+# Documentação / material do relatório (não faz parte da aplicação)
+_relatorio
+_apresentacao
+_deploy
+CLAUDE.md
+*.md
+
+# Backups
+db/backups
+
+# Logs
+*.log
+npm-debug.log*
+pnpm-debug.log*
+
+# Testes
+coverage
+.nyc_output
