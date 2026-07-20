@@ -1,23 +1,31 @@
 <script setup lang="ts">
-const props = defineProps<{
+defineProps<{
   collapsed?: boolean
 }>()
-
-const colorMode = useColorMode()
-const logoSrc = computed(() =>
-  props.collapsed ? '/solverde-logo-small.svg'
-    : colorMode.value === 'dark' ? '/solverde-logo.svg'
-    : '/solverde-logo-black.svg'
-)
 </script>
+
 <template>
   <NuxtLink to="/" :class="['flex items-center py-2', collapsed ? '' : 'px-3']">
     <img
-      :src="logoSrc"
+      v-if="collapsed"
+      src="/solverde-logo-small.svg"
       alt="SolverdePT"
-      :class="collapsed ? 'h-8 w-8 object-contain' : 'h-8 w-auto'"
-      :style="collapsed ? '' : 'max-width: 190px; width: 100%'"
-    />
+      class="h-8 w-8 object-contain"
+    >
+    <template v-else>
+      <!-- Troca por CSS: correta no primeiro paint mesmo com preferência 'system' (o SSR resolve sempre 'light') -->
+      <img
+        src="/solverde-logo-black.svg"
+        alt="SolverdePT"
+        class="h-8 w-auto dark:hidden"
+        style="max-width: 190px; width: 100%"
+      >
+      <img
+        src="/solverde-logo.svg"
+        alt="SolverdePT"
+        class="h-8 w-auto hidden dark:block"
+        style="max-width: 190px; width: 100%"
+      >
+    </template>
   </NuxtLink>
 </template>
-
