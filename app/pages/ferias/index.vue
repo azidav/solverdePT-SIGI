@@ -7,6 +7,8 @@ interface Request {
   start_date: string
   end_date: string
   days_count: number
+  half_day: boolean
+  half_day_period: string | null
   status: string
   reason: string | null
   created_at: string
@@ -261,7 +263,7 @@ onMounted(loadData)
               </div>
               <p class="text-sm text-muted mt-0.5">
                 {{ formatDate(r.start_date) }} → {{ formatDate(r.end_date) }}
-                <span class="ml-1 text-xs">({{ formatDaysLabel(r.days_count) }})</span>
+                <span class="ml-1 text-xs">({{ formatDaysLabel(r.days_count, r.half_day_period) }})</span>
               </p>
             </div>
             <div class="flex gap-1 shrink-0">

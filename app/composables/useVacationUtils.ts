@@ -44,18 +44,32 @@ export const useVacationUtils = () => {
   }
 
   // Format a day count: 0.5 → "½", 1.5 → "1½", 2 → "2"
-  function formatDays(n: number): string {
-    if (n % 1 === 0) return String(n)
-    const whole = Math.floor(n)
+  // (days_count chega da API como string — o driver devolve NUMERIC como texto)
+  function formatDays(n: number | string): string {
+    const num = Number(n)
+    if (num % 1 === 0) return String(num)
+    const whole = Math.floor(num)
     return whole > 0 ? `${whole}½` : '½'
   }
 
-  // Full label: 0.5 → "meio dia", 1 → "1 dia útil", 2 → "2 dias úteis"
-  function formatDaysLabel(n: number): string {
-    if (n === 0.5) return 'meio dia'
-    if (n === 1) return '1 dia útil'
-    return `${formatDays(n)} dias úteis`
+  // "morning" → "manhã", "afternoon" → "tarde"
+  function formatHalfDayPeriod(period: string | null | undefined): string {
+    if (period === 'morning') return 'manhã'
+    if (period === 'afternoon') return 'tarde'
+    return ''
   }
 
-  return { STATUS_LABELS, STATUS_COLORS, TYPE_LABELS, formatDate, formatDateTime, localDateStr, formatDays, formatDaysLabel }
+  // Full label: 0.5 → "meio dia", 1 → "1 dia útil", 2 → "2 dias úteis"
+  // Optional period appends "(manhã)"/"(tarde)" to half days
+  function formatDaysLabel(n: number | string, period?: string | null): string {
+    const num = Number(n)
+    if (num === 0.5) {
+      const p = formatHalfDayPeriod(period)
+      return p ? `meio dia (${p})` : 'meio dia'
+    }
+    if (num === 1) return '1 dia útil'
+    return `${formatDays(num)} dias úteis`
+  }
+
+  return { STATUS_LABELS, STATUS_COLORS, TYPE_LABELS, formatDate, formatDateTime, localDateStr, formatDays, formatDaysLabel, formatHalfDayPeriod }
 }

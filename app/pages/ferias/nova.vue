@@ -25,12 +25,19 @@ const form = reactive({
   type: 'annual',
   reason: '',
   include_weekends: false,
-  half_day: false
+  half_day: false,
+  half_day_period: undefined as string | undefined
 })
 
-// When half_day is toggled, lock end_date to start_date
+const HALF_DAY_PERIOD_OPTIONS = [
+  { label: 'Manhã', value: 'morning' },
+  { label: 'Tarde', value: 'afternoon' }
+]
+
+// When half_day is toggled, lock end_date to start_date; reset period when off
 watch(() => form.half_day, (v) => {
   if (v && form.start_date) form.end_date = form.start_date
+  if (!v) form.half_day_period = undefined
 })
 
 // Auto-fill end_date with start_date when end hasn't been picked yet
@@ -137,6 +144,10 @@ async function submit() {
     toast.add({ title: 'A data de início não pode ser posterior à data de fim', color: 'warning' })
     return
   }
+  if (form.half_day && !form.half_day_period) {
+    toast.add({ title: 'Selecione o período do meio dia (manhã ou tarde)', color: 'warning' })
+    return
+  }
   if (overlappingBlackouts.value.length > 0) {
     toast.add({ title: 'O período selecionado inclui datas bloqueadas', color: 'warning' })
     return
@@ -210,6 +221,15 @@ onMounted(() => {
           v-model="form.half_day"
           label="Meio dia"
         />
+
+        <!-- Half day period (mandatory when half day) -->
+        <UFormField v-if="form.half_day" label="Período" required>
+          <URadioGroup
+            v-model="form.half_day_period"
+            :items="HALF_DAY_PERIOD_OPTIONS"
+            orientation="horizontal"
+          />
+        </UFormField>
 
         <!-- Dates -->
         <div class="grid gap-3" :class="form.half_day ? 'grid-cols-1' : 'grid-cols-2'">

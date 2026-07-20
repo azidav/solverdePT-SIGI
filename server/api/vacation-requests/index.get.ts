@@ -60,6 +60,8 @@ export default defineEventHandler(async (event) => {
       vr.start_date,
       vr.end_date,
       vr.days_count,
+      vr.half_day,
+      vr.half_day_period,
       vr.status,
       vr.current_approval_step,
       vr.created_at,

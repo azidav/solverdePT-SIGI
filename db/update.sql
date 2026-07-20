@@ -329,3 +329,11 @@ WHERE r.name = 'Admin'
     SELECT 1 FROM role_permissions rp
     WHERE rp.role_id = r.id AND rp.permission_id = p.id
   );
+
+-- Período do meio-dia (manhã/tarde) para pedidos de ausência
+ALTER TABLE vacation_requests ADD COLUMN IF NOT EXISTS half_day_period VARCHAR(10);
+DO $$ BEGIN
+  ALTER TABLE vacation_requests
+    ADD CONSTRAINT chk_vacation_requests_half_day_period
+    CHECK (half_day_period IN ('morning','afternoon'));
+EXCEPTION WHEN duplicate_object THEN NULL; END $$;

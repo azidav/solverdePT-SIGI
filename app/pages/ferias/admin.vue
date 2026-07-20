@@ -9,6 +9,8 @@ interface Request {
   start_date: string
   end_date: string
   days_count: number
+  half_day: boolean
+  half_day_period: string | null
   status: string
   employee_name: string
   department: string | null
@@ -284,7 +286,7 @@ onMounted(loadRequests)
               <p class="text-xs text-muted mt-0.5">
                 {{ TYPE_LABELS[r.type] || r.type }} ·
                 {{ formatDate(r.start_date) }} → {{ formatDate(r.end_date) }}
-                ({{ formatDaysLabel(r.days_count) }})
+                ({{ formatDaysLabel(r.days_count, r.half_day_period) }})
               </p>
             </div>
             <UIcon name="i-lucide-chevron-right" class="size-4 text-muted shrink-0" />

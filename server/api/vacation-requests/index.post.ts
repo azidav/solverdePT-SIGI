@@ -29,6 +29,7 @@ export default defineEventHandler(async (event) => {
 
   const body = await readBody(event)
   const { start_date, end_date, type = 'annual', reason, include_weekends = false, half_day = false } = body
+  const half_day_period = half_day ? body.half_day_period : null
 
   if (!start_date || !end_date) {
     throw createError({ statusCode: 400, message: 'Data de início e fim são obrigatórias' })
@@ -38,6 +39,9 @@ export default defineEventHandler(async (event) => {
   }
   if (half_day && start_date !== end_date) {
     throw createError({ statusCode: 400, message: 'Meio dia apenas é permitido para um único dia' })
+  }
+  if (half_day && !['morning', 'afternoon'].includes(half_day_period)) {
+    throw createError({ statusCode: 400, message: 'Para meio dia, indique o período (manhã ou tarde).' })
   }
 
   // Load vacation type settings
@@ -81,7 +85,7 @@ export default defineEventHandler(async (event) => {
   if (usesBalance) {
     await recalculateLeaveBalance(currentUser.id, year)
 
-    const [balance] = await sql<{ base_days: number; birthday_bonus: number; carryover_days: number; used_days: number; pending_days: number }[]>`
+    const [balance] = await sql<{ base_days: number, birthday_bonus: number, carryover_days: number, used_days: number, pending_days: number }[]>`
       SELECT base_days, birthday_bonus, carryover_days, used_days, pending_days
       FROM leave_balances WHERE employee_id = ${currentUser.id} AND year = ${year}
     `
@@ -99,9 +103,9 @@ export default defineEventHandler(async (event) => {
 
   const [newRequest] = await sql`
     INSERT INTO vacation_requests
-      (employee_id, type, start_date, end_date, days_count, half_day, reason)
+      (employee_id, type, start_date, end_date, days_count, half_day, half_day_period, reason)
     VALUES
-      (${currentUser.id}, ${type}, ${start_date}, ${end_date}, ${daysCount}, ${!!half_day}, ${reason || null})
+      (${currentUser.id}, ${type}, ${start_date}, ${end_date}, ${daysCount}, ${!!half_day}, ${half_day_period}, ${reason || null})
     RETURNING id
   `
 
