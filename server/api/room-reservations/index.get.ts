@@ -24,8 +24,6 @@ export default defineEventHandler(async (event) => {
       rr.end_time,
       rr.created_at,
       rr.user_id,
-      rr.booking_token,
-      rr.token_expires_at,
       COALESCE(u.name, rr.guest_name) AS booker_name,
       rr.user_id IS NULL AS is_guest
     FROM room_reservations rr

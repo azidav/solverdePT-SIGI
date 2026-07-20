@@ -1,26 +1,22 @@
-import { randomBytes } from 'crypto'
 import sql from '~~/server/utils/db'
 import { getUserFromEvent } from '~~/server/utils/auth'
 import { getUserRoomsPermissions } from '~~/server/utils/rooms'
 import { getAccessToken, getMsGraphConfig, createGraphEvent } from '~~/server/utils/msgraph'
 
 export default defineEventHandler(async (event) => {
+  // Reservas de convidados (sem sessão) desativadas por agora
   const currentUser = await getUserFromEvent(event)
-  const { room_id, meeting_title, description, start_time, end_time, guest_name, add_to_outlook } = await readBody(event)
+  if (!currentUser) throw createError({ statusCode: 401, message: 'Unauthorized' })
+
+  const { room_id, meeting_title, description, start_time, end_time, add_to_outlook } = await readBody(event)
 
   if (!room_id || !meeting_title?.trim() || !start_time || !end_time) {
     throw createError({ statusCode: 400, message: 'Campos obrigatórios em falta' })
   }
 
-  if (currentUser) {
-    const perms = await getUserRoomsPermissions(currentUser.id)
-    if (!perms.includes('ROOMS:RESERVE')) {
-      throw createError({ statusCode: 403, message: 'Sem permissão para fazer reservas' })
-    }
-  } else {
-    if (!guest_name?.trim()) {
-      throw createError({ statusCode: 400, message: 'Nome obrigatório para reservas sem conta' })
-    }
+  const perms = await getUserRoomsPermissions(currentUser.id)
+  if (!perms.includes('ROOMS:RESERVE')) {
+    throw createError({ statusCode: 403, message: 'Sem permissão para fazer reservas' })
   }
 
   const startDt = new Date(start_time)
@@ -57,23 +53,12 @@ export default defineEventHandler(async (event) => {
         throw createError({ statusCode: 409, message: 'Sala já reservada para este horário' })
       }
 
-      let rows
-      if (currentUser) {
-        rows = await tx`
-          INSERT INTO room_reservations (room_id, user_id, meeting_title, description, start_time, end_time, source)
-          VALUES (${room_id}, ${currentUser.id}, ${meeting_title.trim()}, ${description || null}, ${startDt}, ${endDt}, 'platform')
-          RETURNING id, room_id, user_id, meeting_title, description, start_time, end_time, created_at
-        `
-      } else {
-        const bookingToken = randomBytes(32).toString('hex')
-        const tokenExpiresAt = new Date(Date.now() + 10 * 60 * 1000)
-        rows = await tx`
-          INSERT INTO room_reservations (room_id, guest_name, booking_token, token_expires_at, meeting_title, description, start_time, end_time, source)
-          VALUES (${room_id}, ${guest_name.trim()}, ${bookingToken}, ${tokenExpiresAt}, ${meeting_title.trim()}, ${description || null}, ${startDt}, ${endDt}, 'platform')
-          RETURNING id, room_id, guest_name, meeting_title, description, start_time, end_time, booking_token, token_expires_at, created_at
-        `
-      }
-      return rows[0]
+      const rows = await tx`
+        INSERT INTO room_reservations (room_id, user_id, meeting_title, description, start_time, end_time, source)
+        VALUES (${room_id}, ${currentUser.id}, ${meeting_title.trim()}, ${description || null}, ${startDt}, ${endDt}, 'platform')
+        RETURNING id, room_id, user_id, meeting_title, description, start_time, end_time, created_at
+      `
+      return rows[0]!
     })
   } catch (err: any) {
     // Re-throw H3 errors (conflict, etc.) transparently

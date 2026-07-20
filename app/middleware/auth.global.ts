@@ -5,13 +5,14 @@ export default defineNuxtRouteMiddleware((to) => {
 
   // Auth pages: redirect logged-in users away (they don't need login/forgot-password)
   const authPages = ['/login', '/forgot-password', '/reset-password']
-  // Guest-accessible pages: open to everyone, but auth users can also visit
-  const guestPages = ['/meeting-rooms']
-  const publicRoutes = [...authPages, ...guestPages]
+  const publicRoutes = [...authPages]
   const forcedChangeRoute = '/change-password'
 
+  // Public room display panels (tablet at each room's entrance) — dynamic segment, so prefix match
+  const isPublicDisplay = to.path === '/painel-salas' || to.path.startsWith('/painel-salas/')
+
   // Not authenticated → send to login (except public routes)
-  if (!isAuth && !publicRoutes.includes(to.path)) {
+  if (!isAuth && !publicRoutes.includes(to.path) && !isPublicDisplay) {
     return navigateTo({ path: '/login', query: { redirect: to.fullPath } })
   }
 
