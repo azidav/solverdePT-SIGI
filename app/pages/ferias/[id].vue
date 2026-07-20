@@ -25,10 +25,13 @@ interface RequestDetail {
   start_date: string
   end_date: string
   days_count: number
+  half_day: boolean
+  half_day_period: string | null
   status: string
   reason: string | null
   current_approval_step: number
   employee_name: string
+  employee_no?: string | null
   department: string | null
   created_at: string
   history: any[]
@@ -41,7 +44,7 @@ interface RequestDetail {
 const route = useRoute()
 const toast = useToast()
 const { can } = useRbac()
-const { STATUS_LABELS, STATUS_COLORS, TYPE_LABELS, formatDate, formatDateTime, formatDays } = useVacationUtils()
+const { STATUS_LABELS, STATUS_COLORS, TYPE_LABELS, formatDate, formatDateTime, formatDays, formatHalfDayPeriod } = useVacationUtils()
 
 const STEP_STATUS_LABELS: Record<string, string> = {
   pending: 'Aguarda',
@@ -146,6 +149,40 @@ async function cancelRequest() {
 
 const showUndoModal = ref(false)
 
+// PDF do pedido aprovado
+const downloadingPdf = ref(false)
+
+// Data de aceitação = data do último passo aprovado; se auto-aprovado (sem
+// passos), a entrada do histórico com estado 'approved'; senão created_at.
+function resolveApprovedAt(): string {
+  const req = request.value!
+  const approvedSteps = (req.steps ?? [])
+    .filter(s => s.status === 'approved' && s.actioned_at)
+    .map(s => s.actioned_at as string)
+  if (approvedSteps.length > 0) {
+    return approvedSteps.sort().at(-1)!
+  }
+  const approvedHistory = (req.history ?? [])
+    .filter((h: { new_status?: string, actioned_at?: string }) => h.new_status === 'approved' && h.actioned_at)
+    .map((h: { actioned_at: string }) => h.actioned_at)
+  if (approvedHistory.length > 0) {
+    return approvedHistory.sort().at(-1)!
+  }
+  return req.created_at
+}
+
+async function downloadPdf() {
+  if (!request.value) return
+  downloadingPdf.value = true
+  try {
+    await generateVacationRequestPdf({ ...request.value, approved_at: resolveApprovedAt() })
+  } catch {
+    toast.add({ title: 'Erro ao gerar PDF', color: 'error' })
+  } finally {
+    downloadingPdf.value = false
+  }
+}
+
 async function undoApproval() {
   actioning.value = true
   try {
@@ -214,7 +251,10 @@ onMounted(loadRequest)
                     <p class="text-xs text-muted">
                       Período
                     </p>
-                    <p>{{ formatDate(request.start_date) }} → {{ formatDate(request.end_date) }}</p>
+                    <p>
+                      {{ formatDate(request.start_date) }} → {{ formatDate(request.end_date) }}
+                      <span v-if="request.half_day && request.half_day_period" class="text-muted">({{ formatHalfDayPeriod(request.half_day_period) }})</span>
+                    </p>
                   </div>
                   <div>
                     <p class="text-xs text-muted">
@@ -239,7 +279,16 @@ onMounted(loadRequest)
                 </div>
 
                 <!-- Cancel own pending request -->
-                <div v-if="request.status === 'pending' || request.can_undo" class="flex justify-end gap-2 pt-1">
+                <div v-if="request.status === 'pending' || request.status === 'approved'" class="flex justify-end gap-2 pt-1">
+                  <UButton
+                    v-if="request.status === 'approved'"
+                    icon="i-lucide-file-down"
+                    label="Descarregar PDF"
+                    variant="outline"
+                    size="sm"
+                    :loading="downloadingPdf"
+                    @click="downloadPdf"
+                  />
                   <UButton
                     v-if="request.status === 'pending'"
                     icon="i-lucide-x"

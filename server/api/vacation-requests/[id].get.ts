@@ -13,7 +13,8 @@ export default defineEventHandler(async (event) => {
     SELECT
       vr.*,
       u.name AS employee_name,
-      u.department
+      u.department,
+      u.employee_no
     FROM vacation_requests vr
     INNER JOIN users u ON vr.employee_id = u.id
     WHERE vr.id = ${id}
@@ -50,9 +51,11 @@ export default defineEventHandler(async (event) => {
   `
 
   const steps = await sql`
-    SELECT * FROM approval_workflow_steps
-    WHERE request_id = ${id}
-    ORDER BY step_order ASC
+    SELECT aws.*, ua.name AS approver_name
+    FROM approval_workflow_steps aws
+    LEFT JOIN users ua ON ua.id = aws.approver_id
+    WHERE aws.request_id = ${id}
+    ORDER BY aws.step_order ASC
   `
 
   // Determine if current user can act on the current approval step
