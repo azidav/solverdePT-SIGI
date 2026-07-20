@@ -20,13 +20,28 @@ export default defineEventHandler(async (event) => {
   }
 
   // Create user with no password — status 2 (pending activation)
-  const result = await sql`
-    INSERT INTO users (username, password, name, email, department, permission, employee_no, status, must_change_password)
-    VALUES (${username}, NULL, ${name}, ${email}, ${department || null}, ${permission || 2}, ${employee_no || null}, 2, false)
-    RETURNING id, username, name, email, department, permission, employee_no, status
-  `
+  let result
+  try {
+    result = await sql`
+      INSERT INTO users (username, password, name, email, department, permission, employee_no, status, must_change_password)
+      VALUES (${username}, NULL, ${name}, ${email}, ${department || null}, ${permission || 2}, ${employee_no || null}, 2, false)
+      RETURNING id, username, name, email, department, permission, employee_no, status
+    `
+  } catch (err: any) {
+    if (err?.code === '23505') {
+      const constraint = err?.constraint_name
+      const message
+        = constraint === 'idx_users_employee_no'
+          ? 'Já existe um utilizador com este Nº de Identificação.'
+          : constraint === 'users_username_key'
+            ? 'Já existe um utilizador com este nome de utilizador.'
+            : 'Já existe um utilizador com estes dados.'
+      throw createError({ statusCode: 409, message })
+    }
+    throw err
+  }
 
-  const userId = result[0].id
+  const userId = result[0]!.id
   await logUserAction(event, currentUser, 'CREATE', 'USER', userId, name)
 
   // Generate activation token (7-day expiry)

@@ -57,12 +57,22 @@ export default defineEventHandler(async (event) => {
       'UPDATE',
       'USER',
       parseInt(userId),
-      updated[0].name
+      updated[0]!.name
     )
 
     return updated[0]
   } catch (error: unknown) {
     if (error instanceof Error && 'statusCode' in error) throw error
+    if ((error as { code?: string })?.code === '23505') {
+      const constraint = (error as { constraint_name?: string })?.constraint_name
+      const message
+        = constraint === 'idx_users_employee_no'
+          ? 'Já existe um utilizador com este Nº de Identificação.'
+          : constraint === 'users_username_key'
+            ? 'Já existe um utilizador com este nome de utilizador.'
+            : 'Já existe um utilizador com estes dados.'
+      throw createError({ statusCode: 409, message })
+    }
     const message = error instanceof Error ? error.message : 'Error updating user'
     throw createError({ statusCode: 500, message })
   }

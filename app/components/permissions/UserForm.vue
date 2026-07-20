@@ -201,7 +201,8 @@ async function onSubmit(event?: FormSubmitEvent<any>) {
 
     emit('saved')
   } catch (error: unknown) {
-    const message = error instanceof Error ? error.message : 'Erro ao guardar utilizador'
+    const apiMessage = (error as { data?: { message?: string } })?.data?.message
+    const message = apiMessage || (error instanceof Error ? error.message : 'Erro ao guardar utilizador')
     toast.add({ title: 'Erro', description: message, color: 'error' })
   } finally {
     loading.value = false
