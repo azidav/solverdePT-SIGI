@@ -1,9 +1,14 @@
 # ------------------------------------------------------------------------------
 # docker-compose.prod.yml — deployment de produção do SIGI
 #
-# Sobe dois serviços:
-#   - app: aplicação Nuxt 4 construída a partir do Dockerfile
-#   - db:  PostgreSQL 16 com volume persistente e schema inicial
+# Sobe três serviços:
+#   - db:      PostgreSQL 16 com volume persistente
+#   - migrate: aplica as migrações (db/update.sql) em CADA arranque e termina
+#   - app:     aplicação Nuxt 4 construída a partir do Dockerfile
+#
+# O migrate garante que a base de dados fica sempre com o schema atualizado,
+# mesmo em redeploys (o db/init.sql só corre no primeiro arranque; as migrações
+# novas entram sempre pelo migrate porque o db/update.sql é idempotente).
 #
 # Uso:
 #   docker compose -f docker-compose.prod.yml --env-file .env up -d --build
@@ -20,18 +25,38 @@ services:
       POSTGRES_DB: ${POSTGRES_DB:-sigi_prod}
     volumes:
       - pgdata:/var/lib/postgresql/data
+      # Só corre no PRIMEIRO arranque (volume vazio): cria o schema base + seed.
+      # As migrações seguintes são aplicadas pelo serviço "migrate" (ver abaixo).
       - ./db/init.sql:/docker-entrypoint-initdb.d/01-init.sql:ro
-      - ./db/update.sql:/docker-entrypoint-initdb.d/02-update.sql:ro
     # Não exponho a porta 5432 ao exterior — o Nuxt fala com o Postgres
     # apenas pela rede interna do compose. Se precisares de aceder por fora
     # para debugging, descomenta a linha abaixo (não recomendado em produção).
     # ports:
-    #   - "5432:5432"
+    #   - "127.0.0.1:5432:5432"
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-sigi} -d ${POSTGRES_DB:-sigi_prod}"]
       interval: 10s
       timeout: 5s
       retries: 5
+    networks:
+      - sigi_net
+
+  # Aplica as migrações idempotentes (db/update.sql) e termina. Corre em cada
+  # "up", garantindo que colunas/tabelas novas entram na BD existente.
+  migrate:
+    image: postgres:16
+    container_name: sigi_migrate
+    restart: "no"
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      PGPASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD em falta no .env}
+    volumes:
+      - ./db/update.sql:/sql/update.sql:ro
+    entrypoint: ["sh", "-c"]
+    command:
+      - "psql -h db -U ${POSTGRES_USER:-sigi} -d ${POSTGRES_DB:-sigi_prod} -v ON_ERROR_STOP=1 -f /sql/update.sql"
     networks:
       - sigi_net
 
@@ -45,15 +70,26 @@ services:
     depends_on:
       db:
         condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
     environment:
       NODE_ENV: production
       NUXT_HOST: 0.0.0.0
       NUXT_PORT: 3000
       DATABASE_URL: postgres://${POSTGRES_USER:-sigi}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB:-sigi_prod}
       JWT_SECRET: ${JWT_SECRET:?JWT_SECRET em falta no .env}
+      JWT_EXPIRES_IN: ${JWT_EXPIRES_IN:-28800}
       NUXT_PUBLIC_BASE_URL: ${NUXT_PUBLIC_BASE_URL:-http://localhost:3000}
     ports:
+      # Por defeito exposto em todas as interfaces (para testar http://IP:3000).
+      # Com Nginx à frente, troca para "127.0.0.1:${APP_PORT:-3000}:3000".
       - "${APP_PORT:-3000}:3000"
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://localhost:3000/').then(function(){process.exit(0)}).catch(function(){process.exit(1)})"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
     networks:
       - sigi_net
 
