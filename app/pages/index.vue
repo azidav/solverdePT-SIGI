@@ -22,7 +22,7 @@ definePageMeta({ title: 'Início' })
 const auth = useAuth()
 const userName = computed(() => auth.user.value?.name || auth.user.value?.username || '')
 const { STATUS_LABELS, STATUS_COLORS, TYPE_LABELS, formatDate } = useVacationUtils()
-const { can } = useRbac()
+const { can, canVacation, canRooms, loading: rbacLoading } = useRbac()
 
 const vacationRequests = ref<VacationRequest[]>([])
 const loadingVacations = ref(false)
@@ -82,7 +82,9 @@ async function loadPendingApprovals() {
 async function loadVacations() {
   loadingVacations.value = true
   try {
-    const res = await useApiFetch('/api/vacation-requests?limit=5') as { data: VacationRequest[] }
+    // own=1 garante que mostra APENAS os pedidos do próprio utilizador
+    // (sem isto, quem tem VACATION:VIEW_TEAM via a equipa toda neste cartão)
+    const res = await useApiFetch('/api/vacation-requests?own=1&limit=5') as { data: VacationRequest[] }
     vacationRequests.value = res.data ?? []
   } catch {
     vacationRequests.value = []
@@ -121,6 +123,18 @@ function isToday(iso: string) {
   return new Date(iso).toDateString() === new Date().toDateString()
 }
 
+// Só carrega os dados de cada módulo quando o utilizador tem acesso a esse módulo
+function loadDashboard() {
+  if (canVacation.value) {
+    loadVacations()
+    loadPendingApprovals()
+    if (can('VACATION:RH')) loadUnprocessed()
+  }
+  if (canRooms.value) {
+    loadReservations()
+  }
+}
+
 onMounted(() => {
   const welcomeToast = useState<string | null>('welcome-toast', () => null)
   if (welcomeToast.value) {
@@ -128,10 +142,12 @@ onMounted(() => {
     welcomeToast.value = null
   }
 
-  loadPendingApprovals()
-  loadVacations()
-  loadReservations()
-  loadUnprocessed()
+  // As permissões carregam de forma assíncrona; carrega assim que estiverem prontas
+  if (!rbacLoading.value) loadDashboard()
+})
+
+watch(rbacLoading, (isLoading) => {
+  if (!isLoading) loadDashboard()
 })
 </script>
 
@@ -150,7 +166,7 @@ onMounted(() => {
         <!-- Welcome -->
         <div>
           <h1 class="text-2xl font-bold">
-            Olá, {{ userName }} 👋
+            Olá, {{ userName }}
           </h1>
           <p class="text-muted text-sm mt-1">
             Bem-vindo ao sistema de gestão SolverdePT.
@@ -287,8 +303,8 @@ onMounted(() => {
         <!-- Vacation + Reservations side by side -->
         <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 items-start">
 
-        <!-- Vacation requests -->
-        <UCard>
+        <!-- Vacation requests (só com acesso ao módulo de Férias) -->
+        <UCard v-if="canVacation">
           <template #header>
             <div class="flex items-center justify-between">
               <div class="flex items-center gap-2">
@@ -354,9 +370,9 @@ onMounted(() => {
           </div>
         </UCard>
 
-        <!-- Room reservations -->
+        <!-- Room reservations (só com acesso ao módulo de Salas) -->
 
-        <UCard>
+        <UCard v-if="canRooms">
           <template #header>
             <div class="flex items-center justify-between">
               <div class="flex items-center gap-2">
