@@ -25,9 +25,6 @@ CREATE TABLE IF NOT EXISTS approval_level_members (
 CREATE INDEX IF NOT EXISTS idx_approval_level_members_level_id ON approval_level_members(level_id);
 CREATE INDEX IF NOT EXISTS idx_approval_level_members_user_id  ON approval_level_members(user_id);
 
--- Link approval_workflow_steps to levels
-ALTER TABLE approval_workflow_steps
-  ADD COLUMN IF NOT EXISTS level_id INT REFERENCES approval_levels(id) ON DELETE SET NULL;
 
 -- Meeting Rooms module
 CREATE TABLE IF NOT EXISTS meeting_rooms (
@@ -337,3 +334,10 @@ DO $$ BEGIN
     ADD CONSTRAINT chk_vacation_requests_half_day_period
     CHECK (half_day_period IN ('morning','afternoon'));
 EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+
+-- Link approval_workflow_steps to levels (movido para depois da criacao da tabela)
+ALTER TABLE approval_workflow_steps
+  ADD COLUMN IF NOT EXISTS level_id INT REFERENCES approval_levels(id) ON DELETE SET NULL;
+
+-- Room reservations: coluna description (usada pela listagem de salas)
+ALTER TABLE room_reservations ADD COLUMN IF NOT EXISTS description TEXT;

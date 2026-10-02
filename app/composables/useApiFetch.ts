@@ -1,8 +1,13 @@
 import { useAuth } from './useAuth'
 
 export async function useApiFetch(url: string, options?: Record<string, unknown>) {
+  const ssrHeaders = import.meta.server ? useRequestHeaders(['cookie']) : {}
   try {
-    return await $fetch(url, options)
+    return await $fetch(url, {
+      credentials: 'include',
+      ...options,
+      headers: { ...ssrHeaders, ...((options?.headers as Record<string, string>) || {}) }
+    })
   } catch (e: unknown) {
     const err = e as { status?: number, statusCode?: number, response?: { status?: number } }
     const statusCode = err?.status ?? err?.statusCode ?? err?.response?.status
