@@ -34,6 +34,13 @@ function onTabChange(value: string | number) {
 if (import.meta.client && (route.path === '/permissions' || route.path === '/permissions/')) {
   navigateTo('/permissions/groups', { replace: true })
 }
+
+// Importação de utilizadores por Excel
+const showImport = ref(false)
+function onImported() {
+  // Recarrega a lista de utilizadores após importar
+  if (import.meta.client) reloadNuxtApp({ path: '/permissions/users' })
+}
 </script>
 
 <template>
@@ -57,6 +64,14 @@ if (import.meta.client && (route.path === '/permissions' || route.path === '/per
           />
           <UButton
             v-if="activeTab === 'users'"
+            icon="i-lucide-file-spreadsheet"
+            label="Importar Excel"
+            color="neutral"
+            variant="subtle"
+            @click="showImport = true"
+          />
+          <UButton
+            v-if="activeTab === 'users'"
             icon="i-lucide-plus"
             label="Adicionar Utilizador"
             color="primary"
@@ -77,4 +92,6 @@ if (import.meta.client && (route.path === '/permissions' || route.path === '/per
       <NuxtPage />
     </template>
   </UDashboardPanel>
+
+  <PermissionsBulkImportModal v-model:open="showImport" @imported="onImported" />
 </template>
